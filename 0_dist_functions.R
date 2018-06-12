@@ -107,12 +107,12 @@ growthCalculate <- function(data = data, windowLength = 10){
   ) %>%
     arrange(core_id, year) %>%
     group_by(core_id) %>%
-    mutate(dbh_growth = ifelse(row_number() == 1, incr_mm + missing_mm, incr_mm),
+    mutate(dbh_growth = ifelse(row_number() == 1, sum(incr_mm, missing_mm, na.rm = T), incr_mm),
            dbh_growth = cumsum(dbh_growth) * 2,
            dbh_mm = ifelse(is.na(dbh_mm), max(dbh_growth), dbh_mm),
            dbh_coef = max(dbh_mm) / max(dbh_growth),
            dbh_growth = dbh_growth * dbh_coef,
-           age = year - min(year) + missing_years + 1,
+           age = sum(year - min(year), missing_years, 1, na.rm = T),
            pg = priorGrowth(incr_mm, windowLength = windowLength),
            fg = followGrowth(incr_mm, windowLength = windowLength),
            ai = fg - pg) %>%
