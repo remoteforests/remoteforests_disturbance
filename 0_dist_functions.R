@@ -9,7 +9,9 @@ distGetData <- function(tree.id = NULL){
     inner_join(., tbl(KELuser, 'species_fk') %>% select(species = id, sp_group_dist), by = 'species') %>%
     inner_join(., tbl(KELuser, 'dist_group') %>% select(-id), by = c('country', 'foresttype', 'location', 'sp_group_dist')) %>%
     select(dist_param, plot_id, tree_id, core_id = id, missing_mm, missing_years, dbh_mm) %>%
-    collect()
+    collect() %>%
+    mutate(missing_mm = ifelse(missing_mm %in% NA, 0, missing_mm),
+           missing_years = ifelse(missing_years %in% NA, 0, missing_years))
   
   ring.tbl <- tbl(KELuser, 'ring') %>%
     filter(core_id %in% core.tbl$core_id) %>%
@@ -107,12 +109,12 @@ growthCalculate <- function(data = data, windowLength = 10){
   ) %>%
     arrange(core_id, year) %>%
     group_by(core_id) %>%
-    mutate(dbh_growth = ifelse(row_number() == 1, sum(incr_mm, missing_mm, na.rm = T), incr_mm),
+    mutate(dbh_growth = ifelse(row_number() == 1, incr_mm + missing_mm, incr_mm),
            dbh_growth = cumsum(dbh_growth) * 2,
            dbh_mm = ifelse(is.na(dbh_mm), max(dbh_growth), dbh_mm),
            dbh_coef = max(dbh_mm) / max(dbh_growth),
            dbh_growth = dbh_growth * dbh_coef,
-           age = sum(year - min(year), missing_years, 1, na.rm = T),
+           age = year - min(year) + missing_years + 1,
            pg = priorGrowth(incr_mm, windowLength = windowLength),
            fg = followGrowth(incr_mm, windowLength = windowLength),
            ai = fg - pg) %>%
