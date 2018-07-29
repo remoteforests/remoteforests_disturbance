@@ -83,7 +83,7 @@ data.mds %>%
 #- Growth trend data
 tbl_k('ring') %>%
   inner_join(.,
-             data.all %>% unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid')) %>% filter(!is.na(year_min)) %>% select(plotid, core_id, species, dist_use),
+             data.all %>% unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid'), sep = "/") %>% filter(!is.na(year_min)) %>% select(plotid, core_id, species, dist_use),
              by = 'core_id', copy = T) %>%
   filter(year %in% c(1700:2000)) %>%
   group_by(plotid, species, dist_use, year) %>%
@@ -93,7 +93,7 @@ tbl_k('ring') %>%
 
 #- Data for the ploting the tree position map
 data.all %>%
-  unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid')) %>%
+  unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid'), sep = "/") %>%
   mutate(status = cut(status, c(-Inf, 0, 9, Inf), c('stump', 'alive', 'dead'))) %>%
   select(plotid, tree_id, x_m, y_m, status, species, dbh_mm, event, year, year_min, dist_use) %>%
   mutate(Species = factor(species, levels = c('Picea', 'Fagus', 'Abies', 'Acer', 'Pinus', 'Others', 'gap', 'release', 'no event'))) ->
@@ -143,7 +143,7 @@ data.dist.curr <- tbl_k('plot') %>%
   filter(dbh_mm >= Tdbh_mm) %>%
   select(year, plot_id, plotid, country, foresttype, location, stand, dbh_mm, dbh_ca_f, decay) %>%
   collect() %>%
-  unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid')) %>%
+  unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid'), sep = "/") %>%
   rowwise() %>% 
   mutate ( ca = eval(parse(text = dbh_ca_f))) %>%
   group_by (year, plotid) %>%
