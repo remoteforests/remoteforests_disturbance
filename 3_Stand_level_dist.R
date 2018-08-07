@@ -98,7 +98,7 @@ left_join(data.mds %>% group_by(foresttype,country, stand) %>% nest(.key = mds),
   left_join(plot_per_mds.peaks %>% group_by(foresttype,country, stand) %>% nest(.key = plot_per_mds.peaks), by = c('foresttype','country', 'stand')) %>%
   left_join(plot_n_mds %>% group_by(foresttype,country, stand) %>% nest(.key = plot_n_mds), by = c('foresttype','country', 'stand')) %>%
   left_join(plot_n_mds.peaks %>% group_by(foresttype,country, stand) %>% nest(.key = plot_n_mds.peaks), by = c('foresttype','country', 'stand')) %>%
-  unite(id, c('foresttype','country', 'stand'), sep = '-') %>%
+  unite(id, c('foresttype','country', 'stand'), sep = '/') %>%
   group_by(id) %>%
   nest(.key = all_d) ->
   data.all.nest
