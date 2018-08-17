@@ -25,7 +25,7 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
   collect() %>%
   filter(dbh_event <= dbh_th | is.na(dbh_event)) %>%
   mutate(dist_use = case_when(
-    growth %in% c(1,99,-1) & treetype %in% c('x', 'm', '0') & missing_mm < 30  & !corestatus %in% c(2,3) & !crossdated %in% c(20:30) & !is.na(event) ~ 'yes',
+    growth %in% c(1,99,-1) & treetype %in% c('x', 'm', '0') & missing_mm < 30 | missing_mm %in% NA & !corestatus %in% c(2,3) & !crossdated %in% c(20:30) & !is.na(event) ~ 'yes',
     TRUE ~ 'no'),
     species = factor(sp_group_dist, levels = c('Picea', 'Fagus', 'Abies', 'Acer', 'Pinus', 'Others'))) ->
   data.all
@@ -83,7 +83,7 @@ data.mds %>%
 #- Growth trend data
 tbl_k('ring') %>%
   inner_join(.,
-             data.all %>% unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid')) %>% filter(!is.na(year_min)) %>% select(plotid, core_id, species, dist_use),
+             data.all %>% unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid'), sep = "/") %>% filter(!is.na(year_min)) %>% select(plotid, core_id, species, dist_use),
              by = 'core_id', copy = T) %>%
   filter(year %in% c(1700:2000)) %>%
   group_by(plotid, species, dist_use, year) %>%
@@ -93,7 +93,7 @@ tbl_k('ring') %>%
 
 #- Data for the ploting the tree position map
 data.all %>%
-  unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid')) %>%
+  unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid'), sep = "/") %>%
   mutate(status = cut(status, c(-Inf, 0, 9, Inf), c('stump', 'alive', 'dead'))) %>%
   select(plotid, tree_id, x_m, y_m, status, species, dbh_mm, event, year, year_min, dist_use) %>%
   mutate(Species = factor(species, levels = c('Picea', 'Fagus', 'Abies', 'Acer', 'Pinus', 'Others', 'gap', 'release', 'no event'))) ->
@@ -143,7 +143,7 @@ data.dist.curr <- tbl_k('plot') %>%
   filter(dbh_mm >= Tdbh_mm) %>%
   select(year, plot_id, plotid, country, foresttype, location, stand, dbh_mm, dbh_ca_f, decay) %>%
   collect() %>%
-  unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid')) %>%
+  unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid'), sep = "/") %>%
   rowwise() %>% 
   mutate ( ca = eval(parse(text = dbh_ca_f))) %>%
   group_by (year, plotid) %>%

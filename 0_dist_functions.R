@@ -9,7 +9,9 @@ distGetData <- function(tree.id = NULL){
     inner_join(., tbl(KELuser, 'species_fk') %>% select(species = id, sp_group_dist), by = 'species') %>%
     inner_join(., tbl(KELuser, 'dist_group') %>% select(-id), by = c('country', 'foresttype', 'location', 'sp_group_dist')) %>%
     select(dist_param, plot_id, tree_id, core_id = id, missing_mm, missing_years, dbh_mm) %>%
-    collect()
+    collect() %>%
+    mutate(missing_mm = ifelse(missing_mm %in% NA, 0, missing_mm),
+           missing_years = ifelse(missing_years %in% NA, 0, missing_years))
   
   ring.tbl <- tbl(KELuser, 'ring') %>%
     filter(core_id %in% core.tbl$core_id) %>%
