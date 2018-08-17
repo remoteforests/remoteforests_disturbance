@@ -1,9 +1,9 @@
 
 # 0. Libraries and konections ---------------------------------------------
 library(tidyverse); library(DBI); library(pool); library(zoo); library(pracma); library(ggrepel); library(cowplot); library(gridExtra); library(sp)
-source('disturbance/0_dist_functions.R')
+source('0_dist_functions.R')
 
-source('disturbance/pw.R')
+source('pw.R')
 
 # function to get tables
 tbl_k <- function(...){tbl(KELuser, ...)}
@@ -33,7 +33,7 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
 # Disturbance history data
 data.all %>%
   filter(dist_use == 'yes') %>%
-  mutate(ca = eval(parse(text = dbh_ca_f))) %>%
+  mutate(ca = eval(parse(text = dbh_ca_f))) %>% 
   #select(country, location, stand,foresttype, plotid, plot_id, tree_id, species = sp_group_dist, event, year, dbh_mm,  dbh_ca_f) %>%
   do({
     x <- .

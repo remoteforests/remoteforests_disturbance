@@ -1,9 +1,9 @@
 
 # 0. Libraries and settings -----------------------------------------------
 library(tidyverse); library(DBI); library(pool); library(zoo); library(pracma)
-source('disturbance/0_dist_functions.R')
+source('0_dist_functions.R')
 
-source('disturbance/pw.R')
+source('pw.R')
 
 
 # 1. Select core id’s for which disturbnace shall be calculated -----------
