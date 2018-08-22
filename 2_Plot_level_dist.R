@@ -31,9 +31,11 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
   data.all
 
 # Disturbance history data
-data.all %>%
+data.all %>% 
   filter(dist_use == 'yes') %>%
+  rowwise() %>%
   mutate(ca = eval(parse(text = dbh_ca_f))) %>% 
+  ungroup() %>%
   #select(country, location, stand,foresttype, plotid, plot_id, tree_id, species = sp_group_dist, event, year, dbh_mm,  dbh_ca_f) %>%
   do({
     x <- .
