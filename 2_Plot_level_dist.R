@@ -24,10 +24,11 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
           year_min = year_min - missing_years) %>%
   collect() %>%
   filter(dbh_event <= dbh_th | is.na(dbh_event)) %>%
-  mutate(dist_use = case_when(
-    growth %in% c(1,99,-1) & treetype %in% c('x', 'm', '0') & missing_mm < 30 | missing_mm %in% NA & !corestatus %in% c(2,3) & !crossdated %in% c(20:30) & !is.na(event) ~ 'yes',
-    TRUE ~ 'no'),
-    species = factor(sp_group_dist, levels = c('Picea', 'Fagus', 'Abies', 'Acer', 'Pinus', 'Others'))) ->
+  mutate(missing_mm = ifelse(missing_mm %in% NA, -1, missing_mm),
+         dist_use = case_when(
+           growth %in% c(1,99,-1) & treetype %in% c('x', 'm', '0') & missing_mm < 30 & !corestatus %in% c(2,3) & !crossdated %in% c(20:30) & !is.na(event) ~ 'yes',
+           TRUE ~ 'no'),
+         species = factor(sp_group_dist, levels = c('Picea', 'Fagus', 'Abies', 'Acer', 'Pinus', 'Others'))) ->
   data.all
 
 # Disturbance history data
