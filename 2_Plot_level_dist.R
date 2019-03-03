@@ -21,6 +21,7 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
   inner_join( tbl_k('species_fk') %>% rename(species = id), by = 'species') %>%
   filter(foresttype == 'spruce' & dbh_mm >= 100 | foresttype == 'beech' & dbh_mm >= 60) %>%
   mutate( year = if_else(event != 'release', year - age, year),
+          missing_years = if_else(is.na(missing_years), 0, missing_years),
           year_min = year_min - missing_years) %>%
   collect() %>%
   filter(dbh_event <= dbh_th | is.na(dbh_event)) %>%
