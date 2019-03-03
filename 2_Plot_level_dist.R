@@ -17,10 +17,11 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
   inner_join( tbl_k('ring') %>% group_by(core_id) %>% summarise(year_min = min(year)), by = 'core_id') %>%
   inner_join( tbl_k('core') %>% select(core_id = id, tree_id, missing_mm, missing_years, corestatus, crossdated), by = 'core_id') %>%
   full_join( tbl_k('tree') %>% select(tree_id = id, plot_id, treeid, species, x_m, y_m, dbh_mm, growth, treetype, status), by = 'tree_id') %>%
-  inner_join( tbl_k('plot') %>% select(plot_id = id, plotid,country, location, stand, foresttype), by = 'plot_id') %>%
+  inner_join( tbl_k('plot') %>% select(plot_id = id, plotid, country, location, stand, foresttype), by = 'plot_id') %>%
   inner_join( tbl_k('species_fk') %>% rename(species = id), by = 'species') %>%
   filter(foresttype == 'spruce' & dbh_mm >= 100 | foresttype == 'beech' & dbh_mm >= 60) %>%
   mutate( year = if_else(event != 'release', year - age, year),
+          missing_years = if_else(is.na(missing_years), 0, missing_years),
           year_min = year_min - missing_years) %>%
   collect() %>%
   filter(dbh_event <= dbh_th | is.na(dbh_event)) %>%
