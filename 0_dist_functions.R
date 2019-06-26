@@ -13,8 +13,10 @@ distGetData <- function(tree.id = NULL){
     mutate(missing_mm = ifelse(missing_mm %in% NA, 0, missing_mm),
            missing_years = ifelse(missing_years %in% NA, 0, missing_years))
   
+  core.id <- core.tbl %>% pull(core_id)
+  
   ring.tbl <- tbl(KELuser, 'ring') %>%
-    filter(core_id %in% core.tbl$core_id) %>%
+    filter(core_id %in% core.id) %>%
     select(core_id, ring_id = id, year, incr_mm) %>%
     collect() %>%
     group_by(core_id) %>%
