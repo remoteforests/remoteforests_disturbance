@@ -43,9 +43,9 @@ data.use %>%
   do({
     x <- .
     inner_join(
-      x %>% group_by(country, location, stand, foresttype, plot_id, plotid, species, event, year) %>% summarise(ca = sum(ca)),
-      x %>% distinct(tree_id, .keep_all = T) %>% group_by(plot_id) %>% summarise(ca_f = sum(ca), n = n()) %>% filter(n >= 5),
-      by = 'plot_id'
+      x %>% group_by(country, location, stand, foresttype, plotid, species, event, year) %>% summarise(ca = sum(ca)),
+      x %>% distinct(tree_id, .keep_all = T) %>% group_by(plotid) %>% summarise(ca_f = sum(ca), n = n()) %>% filter(n >= 5),
+      by = 'plotid'
     ) 
   }) %>%
   ungroup() %>%
