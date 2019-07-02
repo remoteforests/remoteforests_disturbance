@@ -16,7 +16,7 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
   inner_join( tbl_k('ring') %>% select(ring_id = id, core_id, year), by = 'ring_id') %>%
   inner_join( tbl_k('ring') %>% group_by(core_id) %>% summarise(year_min = min(year)), by = 'core_id') %>%
   inner_join( tbl_k('core') %>% select(core_id = id, tree_id, missing_mm, missing_years, corestatus, crossdated), by = 'core_id') %>%
-  full_join( tbl_k('tree') %>% select(tree_id = id, plot_id, treeid, species, x_m, y_m, dbh_mm, growth, treetype, status), by = 'tree_id') %>%
+  full_join( tbl_k('tree') %>% select(tree_id = id, plot_id, treeid, species, x_m, y_m, dbh_mm, growth, treetype, status, onplot), by = 'tree_id') %>%
   inner_join( tbl_k('plot') %>% select(plot_id = id, plotid, country, location, stand, foresttype), by = 'plot_id') %>%
   inner_join( tbl_k('species_fk') %>% rename(species = id), by = 'species') %>%
   filter(foresttype == 'spruce' & dbh_mm >= 100 | foresttype == 'beech' & dbh_mm >= 60) %>%
@@ -24,17 +24,18 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
           missing_years = if_else(is.na(missing_years), 0, missing_years),
           year_min = year_min - missing_years) %>%
   collect() %>%
-  filter(dbh_event <= dbh_th | is.na(dbh_event)) %>%
-  mutate(missing_mm = ifelse(missing_mm %in% NA, -1, missing_mm),
-         dist_use = case_when(
-           growth %in% c(1,99,-1) & treetype %in% c('x', 'm', '0') & missing_mm < 30 & !corestatus %in% c(2,3) & !crossdated %in% c(20:30) & !is.na(event) ~ 'yes',
-           TRUE ~ 'no'),
-         species = factor(sp_group_dist, levels = c('Picea', 'Fagus', 'Abies', 'Acer', 'Pinus', 'Others'))) ->
-  data.all
+  filter(dbh_event <= dbh_th | is.na(dbh_event),
+         !growth %in% 0,
+         treetype %in% "0" & onplot %in% c(1, 2) | treetype %in% c("x", "m"),
+         missing_mm < 30 | missing_mm %in% NA,
+         !corestatus %in% c(2, 3),
+         !crossdated %in% c(20:30),
+         !is.na(event)) %>%
+  mutate(species = factor(sp_group_dist, levels = c('Picea', 'Fagus', 'Abies', 'Acer', 'Pinus', 'Others'))) ->
+  data.use
 
 # Disturbance history data
-data.all %>% 
-  filter(dist_use == 'yes') %>%
+data.use %>% 
   rowwise() %>%
   mutate(ca = eval(parse(text = dbh_ca_f))) %>% 
   ungroup() %>%
@@ -42,9 +43,9 @@ data.all %>%
   do({
     x <- .
     inner_join(
-      x %>% group_by(country, location, stand, foresttype, plot_id, plotid, species, event, year) %>% summarise(ca = sum(ca)),
-      x %>% distinct(tree_id, .keep_all = T) %>% group_by(plot_id) %>% summarise(ca_f = sum(ca), n = n()) %>% filter(n >= 5),
-      by = 'plot_id'
+      x %>% group_by(country, location, stand, foresttype, plotid, species, event, year) %>% summarise(ca = sum(ca)),
+      x %>% distinct(tree_id, .keep_all = T) %>% group_by(plotid) %>% summarise(ca_f = sum(ca), n = n()) %>% filter(n >= 5),
+      by = 'plotid'
     ) 
   }) %>%
   ungroup() %>%
@@ -87,19 +88,19 @@ data.mds %>%
 #- Growth trend data
 tbl_k('ring') %>%
   inner_join(.,
-             data.all %>% unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid'), sep = "/") %>% filter(!is.na(year_min)) %>% select(plotid, core_id, species, dist_use),
+             data.use %>% unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid'), sep = "/") %>% filter(!is.na(year_min)) %>% select(plotid, core_id, species),
              by = 'core_id', copy = T) %>%
   filter(year %in% c(1700:2000)) %>%
-  group_by(plotid, species, dist_use, year) %>%
+  group_by(plotid, species, year) %>%
   summarise(incr_mm = mean(incr_mm)) %>%
   collect() ->
   growth.trend
 
 #- Data for the ploting the tree position map
-data.all %>%
+data.use %>%
   unite(plotid, c('foresttype','country', 'location', 'stand', 'plotid'), sep = "/") %>%
   mutate(status = cut(status, c(-Inf, 0, 9, Inf), c('stump', 'alive', 'dead'))) %>%
-  select(plotid, tree_id, x_m, y_m, status, species, dbh_mm, event, year, year_min, dist_use) %>%
+  select(plotid, tree_id, x_m, y_m, status, species, dbh_mm, event, year, year_min) %>%
   mutate(Species = factor(species, levels = c('Picea', 'Fagus', 'Abies', 'Acer', 'Pinus', 'Others', 'gap', 'release', 'no event'))) ->
   data.position
 
@@ -109,8 +110,7 @@ data.position %>%
 
 #- Data for the ploting predicted year of the event
 data.position %>%
-  filter(dist_use == 'yes',
-         !is.na(x_m))%>%
+  filter(!is.na(x_m))%>%
   #filter(plotid %in% c('spruce_Slovakia_Oravske Beskydy_Pilsko_SLO_PIL_146', 'beech_Slovakia_High Fatra_Kornietova_SLO_KOR_006_1'))%>%
   group_by(plotid) %>%
   nest() %>%

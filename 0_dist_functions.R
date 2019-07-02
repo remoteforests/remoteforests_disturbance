@@ -13,8 +13,10 @@ distGetData <- function(tree.id = NULL){
     mutate(missing_mm = ifelse(missing_mm %in% NA, 0, missing_mm),
            missing_years = ifelse(missing_years %in% NA, 0, missing_years))
   
+  core.id <- core.tbl %>% pull(core_id)
+  
   ring.tbl <- tbl(KELuser, 'ring') %>%
-    filter(core_id %in% core.tbl$core_id) %>%
+    filter(core_id %in% core.id) %>%
     select(core_id, ring_id = id, year, incr_mm) %>%
     collect() %>%
     group_by(core_id) %>%
@@ -317,13 +319,13 @@ plotDistPos <- function(data, name){
       ggplot( aes(x_m, y_m))+
       geom_tile(data = data[['dist.plot']][[1]], aes(x_m, y_m, fill = year), alpha = 0.4) +
       geom_point( aes(size = dbh_mm, color = Species, shape = status)) +
-      geom_text_repel(aes(size = dbh_mm,label = year, color = species, alpha = dist_use), size  = 3)
+      geom_text_repel(aes(size = dbh_mm, label = year, color = species), size  = 3)
     
   }else{
     p <- data[['position']][[1]] %>%
-      ggplot( aes(x_m, y_m))+
+      ggplot( aes(x_m, y_m)) +
       geom_point( aes(size = dbh_mm, color = Species, shape = status)) +
-      geom_text_repel(aes(size = dbh_mm,label = year, color = species, alpha = dist_use), size  = 3)
+      geom_text_repel(aes(size = dbh_mm,label = year, color = species), size  = 3)
   }
   
   p +
@@ -345,7 +347,7 @@ plotDistPos <- function(data, name){
   data[['age_dbh']][[1]] %>%
     filter(status == 'alive') %>%
     ggplot() +
-    geom_histogram(aes(dbh_mm, fill = Species, alpha = dist_use), binwidth = 50) +
+    geom_histogram(aes(dbh_mm, fill = Species), binwidth = 50) +
     coord_cartesian(xlim = c(0, 800)) +
     gstyle + xlab('DBH (mm)') + ylab('Count') +
     theme(legend.position = "none") +
@@ -355,7 +357,7 @@ plotDistPos <- function(data, name){
   # age
   data[['age_dbh']][[1]] %>%
     ggplot() +
-    geom_histogram(aes(year_min, fill = Species, alpha = dist_use), binwidth = 5) +
+    geom_histogram(aes(year_min, fill = Species), binwidth = 5) +
     coord_cartesian(xlim = c(1700, 2000)) +
     gstyle + xlab('Calendar year') + ylab('Count') +
     theme(legend.position = "none") +
@@ -386,7 +388,7 @@ plotDistPos <- function(data, name){
   # growth trend
   data[['growth.trend']][[1]] %>%
     ggplot()+
-    geom_line(aes(year, incr_mm, colour = species, alpha = dist_use), size = 1) +
+    geom_line(aes(year, incr_mm, colour = species), size = 1) +
     geom_point(aes(1700, 3), color = 'white') +
     geom_point(aes(2020, 3), color = 'white') +
     gstyle + 
