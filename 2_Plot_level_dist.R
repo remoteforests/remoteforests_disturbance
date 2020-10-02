@@ -19,7 +19,7 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
   full_join( tbl_k('tree') %>% select(tree_id = id, plot_id, treeid, species, x_m, y_m, dbh_mm, growth, treetype, status, onplot), by = 'tree_id') %>%
   inner_join( tbl_k('plot') %>% select(plot_id = id, plotid, country, location, stand, foresttype), by = 'plot_id') %>%
   inner_join( tbl_k('species_fk') %>% rename(species = id), by = 'species') %>%
-  filter(foresttype == 'spruce' & dbh_mm >= 100 | foresttype == 'beech' & dbh_mm >= 60) %>%
+  filter(dbh_mm >= 100) %>% # filter(foresttype == 'spruce' & dbh_mm >= 100 | foresttype == 'beech' & dbh_mm >= 60) %>%
   mutate( year = if_else(event != 'release', year - age, year),
           missing_years = if_else(is.na(missing_years), 0, missing_years),
           year_min = year_min - missing_years) %>%
@@ -132,7 +132,7 @@ data.peaks %>%
             dist_last_sev = value[which.max(year)]) %>%
   mutate_at(vars(dis_sev, dist_mean_sev, dist_first_sev, dist_last_sev), funs(round(.,0))) %>%
   group_by(plotid) %>%
-  nest(.key = data.dist.info) ->
+  nest(.key = "data.dist.info") ->
   data.dist.info
 
 #-- Calculate the current disturbance rate (up to date)
@@ -158,17 +158,17 @@ data.dist.curr <- tbl_k('plot') %>%
 
 
 #-- Join all the data together
-inner_join(data.dist %>% group_by(plotid) %>% nest(.key = dist),
-           data.mds %>% group_by(plotid) %>% nest(.key = mds), by = 'plotid') %>%
-  inner_join(data.peaks %>% group_by(plotid) %>% nest(.key = peaks), by = 'plotid') %>%
-  inner_join(growth.trend %>% group_by(plotid) %>% nest(.key = growth.trend), by = 'plotid') %>%
-  inner_join(data.position %>% group_by(plotid) %>% nest(.key = position), by = 'plotid') %>%
-  inner_join(data.age_dbh %>% group_by(plotid) %>% nest(.key = age_dbh), by = 'plotid') %>%
+inner_join(data.dist %>% group_by(plotid) %>% nest(.key = "dist"),
+           data.mds %>% group_by(plotid) %>% nest(.key = "mds"), by = 'plotid') %>%
+  inner_join(data.peaks %>% group_by(plotid) %>% nest(.key = "peaks"), by = 'plotid') %>%
+  inner_join(growth.trend %>% group_by(plotid) %>% nest(.key = "growth.trend"), by = 'plotid') %>%
+  inner_join(data.position %>% group_by(plotid) %>% nest(.key = "position"), by = 'plotid') %>%
+  inner_join(data.age_dbh %>% group_by(plotid) %>% nest(.key = "age_dbh"), by = 'plotid') %>%
   left_join(data.dist.pred, by = 'plotid') %>%
   left_join(data.dist.info, by = 'plotid') %>%
-  left_join(data.dist.curr %>% group_by(plotid) %>% nest(.key = data.dist.curr), by = 'plotid') %>%
+  left_join(data.dist.curr %>% group_by(plotid) %>% nest(.key = "data.dist.curr"), by = 'plotid') %>%
   group_by(plotid) %>%
-  nest(.key = all_d) ->
+  nest(.key = "all_d") ->
   data.all.nest
 
 #-- map the pltos
