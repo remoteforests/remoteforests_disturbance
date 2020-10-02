@@ -89,18 +89,18 @@ plot_n_mds %>%
 
 
 # merge all data together
-left_join(data.mds %>% group_by(foresttype,country, stand) %>% nest(.key = mds),
-           data.peaks %>% group_by(foresttype,country, stand) %>% nest(.key = peaks), by = c('foresttype','country', 'stand')) %>%
-  left_join(dist_plot.df %>% group_by(foresttype,country, stand) %>% nest(.key = mds.plot), by = c('foresttype','country', 'stand')) %>%
-  left_join(dist_plot_event.df %>% group_by(foresttype,country, stand) %>% nest(.key = peaks.plot), by = c('foresttype','country', 'stand')) %>%
-  left_join(data.dist.pred %>% group_by(foresttype,country, stand) %>% nest(.key = pred.dist), by = c('foresttype','country', 'stand')) %>%
-  left_join(plot_per_mds %>% group_by(foresttype,country, stand) %>% nest(.key = plot_per_mds), by = c('foresttype','country', 'stand')) %>%
-  left_join(plot_per_mds.peaks %>% group_by(foresttype,country, stand) %>% nest(.key = plot_per_mds.peaks), by = c('foresttype','country', 'stand')) %>%
-  left_join(plot_n_mds %>% group_by(foresttype,country, stand) %>% nest(.key = plot_n_mds), by = c('foresttype','country', 'stand')) %>%
-  left_join(plot_n_mds.peaks %>% group_by(foresttype,country, stand) %>% nest(.key = plot_n_mds.peaks), by = c('foresttype','country', 'stand')) %>%
+left_join(data.mds %>% group_by(foresttype,country, stand) %>% nest(.key = "mds"),
+           data.peaks %>% group_by(foresttype,country, stand) %>% nest(.key = "peaks"), by = c('foresttype','country', 'stand')) %>%
+  left_join(dist_plot.df %>% group_by(foresttype,country, stand) %>% nest(.key = "mds.plot"), by = c('foresttype','country', 'stand')) %>%
+  left_join(dist_plot_event.df %>% group_by(foresttype,country, stand) %>% nest(.key = "peaks.plot"), by = c('foresttype','country', 'stand')) %>%
+  left_join(data.dist.pred %>% group_by(foresttype,country, stand) %>% nest(.key = "pred.dist"), by = c('foresttype','country', 'stand')) %>%
+  left_join(plot_per_mds %>% group_by(foresttype,country, stand) %>% nest(.key = "plot_per_mds"), by = c('foresttype','country', 'stand')) %>%
+  left_join(plot_per_mds.peaks %>% group_by(foresttype,country, stand) %>% nest(.key = "plot_per_mds.peaks"), by = c('foresttype','country', 'stand')) %>%
+  left_join(plot_n_mds %>% group_by(foresttype,country, stand) %>% nest(.key = "plot_n_mds"), by = c('foresttype','country', 'stand')) %>%
+  left_join(plot_n_mds.peaks %>% group_by(foresttype,country, stand) %>% nest(.key = "plot_n_mds.peaks"), by = c('foresttype','country', 'stand')) %>%
   unite(id, c('foresttype','country', 'stand'), sep = '/') %>%
   group_by(id) %>%
-  nest(.key = all_d) ->
+  nest(.key = "all_d") ->
   data.all.nest
 
   
@@ -112,7 +112,7 @@ data.all.nest %>%
 
 # 3. Plot all the data ----------------------------------------------------
 
-pdf("disturbance/KEL stand level disturbances.pdf", width = 9, height = 7,  pointsize = 12, onefile = T)
+pdf("KEL stand level disturbances.pdf", width = 9, height = 7,  pointsize = 12, onefile = T)
 for(id in 1:nrow(plots.all)){
   cat(id)
   print(plots.all$plot[id])
