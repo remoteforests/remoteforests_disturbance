@@ -15,29 +15,54 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
   inner_join( tbl_k('dist_param') %>% select(dist_param = id, dbh_th = dbh_mm, dbh_ca_f), by = 'dist_param') %>%
   inner_join( tbl_k('ring') %>% select(ring_id = id, core_id, year), by = 'ring_id') %>%
   inner_join( tbl_k('ring') %>% group_by(core_id) %>% summarise(year_min = min(year)), by = 'core_id') %>%
-  inner_join( tbl_k('core') %>% select(core_id = id, tree_id, missing_mm, missing_years, corestatus, crossdated), by = 'core_id') %>%
+  inner_join( tbl_k('core') %>% select(core_id = id, tree_id, missing_mm, missing_years, corestatus, crossdated, coretype), by = 'core_id') %>%
   full_join( tbl_k('tree') %>% select(tree_id = id, plot_id, treeid, species, x_m, y_m, dbh_mm, growth, treetype, status, onplot), by = 'tree_id') %>%
   inner_join( tbl_k('plot') %>% select(plot_id = id, plotid, country, location, stand, foresttype), by = 'plot_id') %>%
   inner_join( tbl_k('species_fk') %>% rename(species = id), by = 'species') %>%
-  filter(dbh_mm >= 100) %>% # filter(foresttype == 'spruce' & dbh_mm >= 100 | foresttype == 'beech' & dbh_mm >= 60) %>%
+  filter(dbh_mm >= 100) %>% 
   mutate( year = if_else(event != 'release', year - age, year),
           missing_years = if_else(is.na(missing_years), 0, missing_years),
           year_min = year_min - missing_years) %>%
   collect() %>%
-  filter(dbh_event <= dbh_th | is.na(dbh_event),
+  filter(coretype %in% 1,
+         dbh_event <= dbh_th | is.na(dbh_event),
          !growth %in% 0,
-         treetype %in% "0" & onplot %in% c(1, 2) | treetype %in% c("x", "m"),
          missing_mm < 30 | missing_mm %in% NA,
          !corestatus %in% c(2, 3),
          !crossdated %in% c(20:30),
          !is.na(event)) %>%
-  mutate(species = factor(sp_group_dist, levels = c('Picea', 'Fagus', 'Abies', 'Acer', 'Pinus', 'Others'))) ->
-  data.use
+  mutate(species = factor(sp_group_dist, levels = c('Picea', 'Fagus', 'Abies', 'Acer', 'Pinus', 'Others'))) %>%
+  do({
+    x <- .
+    tree.add <- x %>% filter(treetype %in% "0" & onplot %in% c(1, 2) | treetype %in% c("x", "m")) %>% 
+      distinct(., plotid, tree_id, dbh_mm) %>%
+      group_by(plotid) %>%
+      summarise(n = n(), 
+                q90 = quantile(dbh_mm, 0.9)) %>%
+      filter(n < 15) %>% 
+      select(plotid, q90) %>% 
+      inner_join(.,
+                 x %>% filter(onplot %in% 3 | treetype %in% c("2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13")) %>%
+                   distinct(., plotid, tree_id, dbh_mm),
+                 by = "plotid") %>%
+      filter(dbh_mm <= q90 + 100) %>%
+      pull(tree_id)
+    
+    bind_rows(
+      x %>% filter(treetype %in% "0" & onplot %in% c(1, 2) | treetype %in% c("x", "m")),
+      x %>% filter(tree_id %in% tree.add)
+    ) 
+  }) -> data.use
 
 # Disturbance history data
-data.use %>% 
+data.use %>%
+  mutate(sample = case_when(
+    foresttype %in% "beech" & dbh_mm >= 100 & dbh_mm < 200 ~ 1,
+    stand %in% "Polana" & dbh_mm >= 100 & dbh_mm < 200 ~ 1,
+    TRUE ~ 0
+  )) %>%
   rowwise() %>%
-  mutate(ca = eval(parse(text = dbh_ca_f))) %>% 
+  mutate(ca = ifelse(sample %in% 1, eval(parse(text = dbh_ca_f)) * 2.5,  eval(parse(text = dbh_ca_f)))) %>% 
   ungroup() %>%
   #select(country, location, stand,foresttype, plotid, plot_id, tree_id, species = sp_group_dist, event, year, dbh_mm,  dbh_ca_f) %>%
   do({
