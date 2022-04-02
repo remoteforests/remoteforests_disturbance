@@ -290,11 +290,11 @@ gstyle <- list(
                                 'stump' =  "grey50",
                                 "10_20_10" = "#7CAE00",
                                 #"10_10_3" = "#da2c3a",
-                                "10_10_5" = "#78c2ef"), drop = F),
+                                "10_10_5" = "#78c2ef"), drop = F, limits = force),
   scale_shape_manual("Status",values = c("dead" = 21,
                                          "alive" = 19,
                                          "stump" = 4), drop = F),
-  scale_alpha_manual("Used for disturbance",values = c('yes' = 1, 'no' = 0.3), guide = F))
+  scale_alpha_manual("Used for disturbance",values = c('yes' = 1, 'no' = 0.3), guide = "none"))
 
 gfill <- list(  scale_fill_manual(values = c("Abies" = "#7CAE00",
                                'Acer' = 'orange',
@@ -329,11 +329,11 @@ plotDistPos <- function(data, name){
   }
   
   p +
-    scale_fill_gradient2(low="#78c2ef",  mid = "#7CAE00", high = "#da2c3a", guide = F, midpoint = 1850, limits = c(1650, 2010)) +
+    scale_fill_gradient2(low="#78c2ef",  mid = "#7CAE00", high = "#da2c3a", guide = "none", midpoint = 1850, limits = c(1650, 2010)) +
     scale_size_continuous("DBH (mm)", 
                           limits = c(0,1400),
                           breaks=c(0,200, 400, 600, 1400),
-                          range = c(2,7), guide = F) +
+                          range = c(2,7), guide = "none") +
     gstyle +
     geom_point( aes(0,0), shape = 3, color = "red",size = 3) +
     geom_path(data = circleFun(r = 12.5), aes(x = X, y = Y), color = "black", size = 0.3)+
@@ -378,7 +378,7 @@ plotDistPos <- function(data, name){
     facet_wrap(~plot_type, ncol = 1) +
     gstyle + 
     #theme(legend.position = "none") +
-    theme(legend.justification = c(0, 1), legend.position = c(0, 1)) + guides(fill=FALSE) + 
+    theme(legend.justification = c(0, 1), legend.position = c(0, 1)) + guides(fill="none") + 
     coord_cartesian(xlim = c(1700, 2020)) + coord_cartesian(ylim = c(0, 60)) +
     geom_point(aes(2020, 60), color = 'white') +
     ylab('Canopy area (%)') +xlab('Year') +
@@ -506,7 +506,7 @@ plotDistStand <- function(data, name = 'test'){
   p + 
     geom_point(data = data[['peaks.plot']][[1]], aes(lng, lat, size = kde)) +
     geom_text_repel(data = data[['peaks.plot']][[1]], aes(lng, lat, label = year, size = kde/2)) +
-    scale_fill_gradient2(low="#78c2ef",  mid = "#7CAE00", high = "#da2c3a", guide = F, midpoint = 1850, limits = c(1650, 2010)) +
+    scale_fill_gradient2(low="#78c2ef",  mid = "#7CAE00", high = "#da2c3a", guide = "none", midpoint = 1850, limits = c(1650, 2010)) +
     gstyle +
     theme(legend.position = 'none') ->
     dist.spat
