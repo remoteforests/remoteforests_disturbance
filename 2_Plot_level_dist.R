@@ -57,7 +57,7 @@ tbl_k('dist_tree') %>% select(dist_param, ring_id, event, dbh_event = dbh_mm, ag
 # Disturbance history data
 data.use %>%
   mutate(sample = case_when(
-    foresttype %in% "beech" & !date %in% 2014 & dbh_mm >= 100 & dbh_mm < 200 ~ 1,
+    foresttype %in% "beech" & !date %in% 2014 & !country %in% "Ukraine" & dbh_mm >= 100 & dbh_mm < 200 ~ 1,
     stand %in% "Polana" & date %in% 2015 & dbh_mm >= 100 & dbh_mm < 200 ~ 1,
     TRUE ~ 0
   )) %>%
