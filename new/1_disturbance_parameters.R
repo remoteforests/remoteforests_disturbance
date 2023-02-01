@@ -14,6 +14,7 @@ plot.id <- tbl(KELuser, "plot") %>%
          census %in% 1,
          !is.na(lng),
          !is.na(lat)) %>%
+  filter(!date %in% 2022) %>%
   pull(id)
 
 tree.id <- tbl(KELuser, "tree") %>%
@@ -35,20 +36,18 @@ core.id <- tbl(KELuser, "core") %>%
 
 # 1. 1. 1. data -----------------------------------------------------------
 
-data.ca <- tbl(KELuser, "tree") %>%
-  filter(id %in% tree.id,
-         !is.na(crowndiam1_m),
-         !is.na(crowndiam2_m)) %>%
-  inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
-  inner_join(., tbl(KELuser, "plot") %>% filter(id %in% plot.id) %>% select(-stand, -subplot), by = c("plot_id" = "id")) %>%
-  left_join(., tbl(KELuser, "spatial_hierarchy"), by = "plotid") %>%
-  select(stand, subplot, plotid, lng, lat, date, treeid, species, sp_type, dbh_mm, crowndiam1_m, crowndiam2_m) %>%
-  collect() %>%
-  mutate(ca_m2 = pi * (crowndiam1_m/2) * (crowndiam2_m/2))
+# data.ca <- tbl(KELuser, "tree") %>%
+#   filter(id %in% tree.id,
+#          !is.na(crowndiam1_m),
+#          !is.na(crowndiam2_m)) %>%
+#   inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
+#   inner_join(., tbl(KELuser, "plot") %>% filter(id %in% plot.id) %>% select(-stand, -subplot), by = c("plot_id" = "id")) %>%
+#   inner_join(., tbl(KELuser, "spatial_hierarchy"), by = "plotid") %>%
+#   select(stand, subplot, plotid, lng, lat, date, treeid, species, sp_type, dbh_mm, crowndiam1_m, crowndiam2_m) %>%
+#   collect() %>%
+#   mutate(ca_m2 = pi * (crowndiam1_m/2) * (crowndiam2_m/2))
 
-write.table(data.ca, "parameters/data/ca_data.csv", sep = ",", row.names = F, na = "")
-
-data.ca <- read.table("parameters/data/ca_data.csv", sep = ",", header = T, stringsAsFactors = F)
+data.ca <- tbl(KELuser, "dist_data_ca") %>% collect()
 
 # 1. 1. 2. LMM ------------------------------------------------------------
 
@@ -99,20 +98,19 @@ plot(ncf::spline.correlog(x = data.broad$lng, y = data.broad$lat, z = residuals(
 #   inner_join(., tbl(KELuser, "tree") %>% filter(id %in% tree.id), by = c("tree_id" = "id")) %>%
 #   inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
 #   inner_join(., tbl(KELuser, "plot") %>% filter(id %in% plot.id), by = c("plot_id" = "id")) %>%
-#   select(date, treeid, species, sp_group_dist, core_id, year, incr_mm) %>%
+#   select(date, treeid, species, sp_group_dist, year, incr_mm) %>%
 #   collect() %>%
-#   arrange(core_id, year) %>%
-#   group_by(core_id) %>%
+#   arrange(date, treeid, year) %>%
+#   group_by(date, treeid) %>%
 #   mutate(incr_mm = if_else(incr_mm %in% 0, NA_real_, incr_mm),
 #          incr_mm = na.approx(incr_mm),
 #          pg = priorGrowth(incr_mm, windowLength = 10),
 #          fg = followGrowth(incr_mm, windowLength = 10),
 #          ai = fg - pg) %>%
-#   ungroup()
-# 
-# write.table(data.ai, "parameters/data/ai_data.csv", sep = ",", row.names = F, na = "")
+#   ungroup() %>% 
+#   filter(!ai %in% c("NaN", NA))
 
-data.ai <- read.table("parameters/data/ai_data.csv", sep = ",", header = T, stringsAsFactors = F) %>% filter(!ai %in% c("NaN", NA))
+data.ai <- tbl(KELuser, "dist_data_ai") %>% collect()
 
 # 1. 2. 2. calculation ----------------------------------------------------
 
@@ -120,77 +118,60 @@ ai <- data.ai %>%
   group_by(sp_group_dist) %>%
   mutate(ai_mm = sd(ai) * 1.25) %>%
   ungroup() %>%
-  distinct(., core_id, .keep_all = T) %>%
+  distinct(., date, treeid, .keep_all = T) %>%
   group_by(sp_group_dist, ai_mm) %>%
-  summarise(n = n()) %>%
+  summarise(ntrees = n()) %>%
   ungroup()
-
-openxlsx::write.xlsx(ai, "parameters/ai.xlsx")
 
 # 1. 3. GAP ---------------------------------------------------------------
 
 # 1. 3. 1. data -----------------------------------------------------------
 
-# release <- tbl(KELuser, "ring") %>%
-#   inner_join(., tbl(KELuser, "core"), by = c("core_id" = "id")) %>%
-#   inner_join(., tbl(KELuser, "tree"), by = c("tree_id" = "id")) %>%
-#   inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
-#   inner_join(., tbl(KELuser, "plot"), by = c("plot_id" = "id")) %>%
-#   select(sp_group_dist, date, treeid, core_id, year, incr_mm) %>%
-#   collect() %>%
-#   inner_join(., openxlsx::read.xlsx("parameters/ai.xlsx") %>% select(sp_group_dist, ai_mm), by = "sp_group_dist") %>%
-#   arrange(core_id, year) %>%
-#   group_by(core_id) %>%
-#   mutate(incr_mm = if_else(incr_mm %in% 0, NA_real_, incr_mm),
-#          incr_mm = na.approx(incr_mm),
-#          pg = priorGrowth(incr_mm, windowLength = 10),
-#          fg = followGrowth(incr_mm, windowLength = 10),
-#          ai = fg - pg,
-#          event = ifelse(row_number() %in% peakDetection(x = ai, threshold = first(ai_mm), nups = 1, mindist = 30), "release", NA),
-#          event = ifelse(lead(fg, 7) <= pg, NA, event),
-#          event = ifelse(lag(pg, 7) >= fg, NA, event)) %>%
-#   ungroup() %>%
-#   filter(!is.na(event)) %>%
-#   distinct(., date, treeid, event)
-# 
-# data.gap <- tbl(KELuser, "ring") %>%
-#   inner_join(., tbl(KELuser, "core") %>%
-#                filter(id %in% core.id,
-#                       !is.na(missing_mm),
-#                       !is.na(missing_years)),
-#              by = c("core_id" = "id")) %>%
-#   inner_join(., tbl(KELuser, "tree") %>%
-#                filter(id %in% tree.id,
-#                       growth %in% c(0, 1)),
-#              by = c("tree_id" = "id")) %>%
-#   inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
-#   inner_join(., tbl(KELuser, "plot") %>% filter(id %in% plot.id), by = c("plot_id" = "id")) %>%
-#   select(date, treeid, species, sp_group_dist, growth, core_id, missing_years, year, incr_mm) %>%
-#   collect() %>%
-#   arrange(core_id, year) %>%
-#   group_by(date, treeid, species, sp_group_dist, growth, core_id) %>%
-#   mutate(age = year - min(year) + missing_years + 1,
-#          incr_mm = if_else(incr_mm %in% 0, NA_real_, incr_mm),
-#          incr_mm = na.approx(incr_mm)) %>%
-#   filter(age %in% c(5:14)) %>%
-#   summarise(gapGrowth = mean(incr_mm, na.rm = T),
-#             n = length(incr_mm[!is.na(incr_mm)])) %>%
-#   filter(n %in% 10) %>%
-#   ungroup() %>%
-#   left_join(., release, by = c("date", "treeid")) %>%
-#   mutate(use = ifelse(growth %in% 1 & event %in% "release", 0 , 1))
-# 
-# write.table(data.gap, "parameters/data/gap_data.csv", sep = ",", row.names = F, na = "")
+data.gap <- tbl(KELuser, "ring") %>%
+  inner_join(., tbl(KELuser, "core") %>%
+               filter(id %in% core.id,
+                      !is.na(missing_mm),
+                      !is.na(missing_years)),
+             by = c("core_id" = "id")) %>%
+  inner_join(., tbl(KELuser, "tree") %>%
+               filter(id %in% tree.id,
+                      growth %in% c(0, 1)),
+             by = c("tree_id" = "id")) %>%
+  inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
+  inner_join(., tbl(KELuser, "plot") %>% filter(id %in% plot.id), by = c("plot_id" = "id")) %>%
+  select(date, treeid, species, sp_group_dist, growth, missing_years, year, incr_mm) %>%
+  collect() %>%
+  inner_join(., ai %>% select(sp_group_dist, ai_mm), by = "sp_group_dist") %>%
+  arrange(date, treeid, year) %>%
+  group_by(date, treeid, species, sp_group_dist, growth) %>%
+  mutate(incr_mm = if_else(incr_mm %in% 0, NA_real_, incr_mm),
+         incr_mm = na.approx(incr_mm),
+         pg = priorGrowth(incr_mm, windowLength = 10),
+         fg = followGrowth(incr_mm, windowLength = 10),
+         ai = fg - pg,
+         release = ifelse(row_number() %in% peakDetection(x = ai, threshold = first(ai_mm), nups = 1, mindist = 30), "yes", NA),
+         release = ifelse(lead(fg, 7) <= pg, NA, release),
+         release = ifelse(lag(pg, 7) >= fg, NA, release),
+         release = first(release[!is.na(release)]),
+         age = year - min(year) + missing_years + 1) %>%
+  filter(age %in% c(5:14)) %>%
+  summarise(incr_mean = mean(incr_mm, na.rm = T),
+            nyears = length(incr_mm[!is.na(incr_mm)]),
+            release = first(release)) %>%
+  ungroup() %>%
+  filter(nyears %in% 10) %>%
+  mutate(use = ifelse(growth %in% 1 & release %in% "yes", "no", "yes"),
+         release = ifelse(is.na(release), "no", release))
 
-data.gap <- read.table("parameters/data/gap_data.csv", sep = ",", header = T, stringsAsFactors = F)
+data.gap <- tbl(KELuser, "dist_data_gap") %>% collect()
 
 # 1. 3. 2. calculation ----------------------------------------------------
 
 set.seed(10)
 
 gap <- data.gap %>%
-  filter(use %in% 1) %>%
-  cutpointr(., x = gapGrowth, class = growth, subgroup = sp_group_dist,
+  filter(use %in% "yes") %>%
+  cutpointr(., x = incr_mean, class = growth, subgroup = sp_group_dist,
             pos_class = 1, neg_class = 0, direction = ">=",
             method = minimize_boot_metric, metric = abs_d_sens_spec,
             boot_cut = 10000, boot_stratify = T, use_midpoints = T)

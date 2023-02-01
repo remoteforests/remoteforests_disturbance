@@ -69,16 +69,16 @@ growthCalculate <- function(data.in, windowLength = 10){
     arrange(core_id, year) %>%
     group_by(core_id) %>%
     mutate(#missing_mm = ifelse(is.na(missing_mm), 0, missing_mm),
-      #missing_years = ifelse(is.na(missing_years, 0, missing_years)),
-      dbh_growth = ifelse(row_number() == 1, incr_mm + missing_mm, incr_mm),
-      dbh_growth = cumsum(dbh_growth) * 2,
-      dbh_mm = ifelse(is.na(dbh_mm), max(dbh_growth), dbh_mm),
-      dbh_coef = max(dbh_mm) / max(dbh_growth),
-      dbh_growth = round(dbh_growth * dbh_coef, 0),
-      age = year - min(year) + missing_years + 1,
-      pg = priorGrowth(incr_mm, windowLength = windowLength),
-      fg = followGrowth(incr_mm, windowLength = windowLength),
-      ai = fg - pg) %>%
+           #missing_years = ifelse(is.na(missing_years, 0, missing_years)),
+           dbh_growth = ifelse(row_number() == 1, incr_mm + missing_mm, incr_mm),
+           dbh_growth = cumsum(dbh_growth) * 2,
+           dbh_mm = ifelse(is.na(dbh_mm), max(dbh_growth), dbh_mm),
+           dbh_coef = max(dbh_mm) / max(dbh_growth),
+           dbh_growth = round(dbh_growth * dbh_coef, 0),
+           age = year - min(year) + missing_years + 1,
+           pg = priorGrowth(incr_mm, windowLength = windowLength),
+           fg = followGrowth(incr_mm, windowLength = windowLength),
+           ai = fg - pg) %>%
     ungroup() %>%
     select(sp_group_dist, tree_id, core_id, ring_id, year, incr_mm, age, dbh_mm = dbh_growth, pg, fg, ai)
   
@@ -162,12 +162,12 @@ eventCalculate <- function(data.in, gapAge = c(5:14), nprol = 7){
     filter(age %in% gapAge) %>%
     arrange(core_id, year) %>%
     group_by(core_id, sp_group_dist) %>%
-    summarise(gapGrowth = mean(incr_mm, na.rm = T),
-              n = length(incr_mm[!is.na(incr_mm)]),
+    summarise(incr_mean = mean(incr_mm, na.rm = T),
+              nyears = length(incr_mm[!is.na(incr_mm)]),
               year = min(year) - (min(age) - 1)) %>%
     ungroup() %>%
-    filter(n %in% 10,
-           gapGrowth >= gapth[sp_group_dist]) %>%
+    filter(nyears %in% 10,
+           incr_mean >= gapth[sp_group_dist]) %>%
     mutate(event = "gap") %>%
     select(core_id, year, event)
   
