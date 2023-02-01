@@ -127,41 +127,41 @@ ai <- data.ai %>%
 
 # 1. 3. 1. data -----------------------------------------------------------
 
-data.gap <- tbl(KELuser, "ring") %>%
-  inner_join(., tbl(KELuser, "core") %>%
-               filter(id %in% core.id,
-                      !is.na(missing_mm),
-                      !is.na(missing_years)),
-             by = c("core_id" = "id")) %>%
-  inner_join(., tbl(KELuser, "tree") %>%
-               filter(id %in% tree.id,
-                      growth %in% c(0, 1)),
-             by = c("tree_id" = "id")) %>%
-  inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
-  inner_join(., tbl(KELuser, "plot") %>% filter(id %in% plot.id), by = c("plot_id" = "id")) %>%
-  select(date, treeid, species, sp_group_dist, growth, missing_years, year, incr_mm) %>%
-  collect() %>%
-  inner_join(., ai %>% select(sp_group_dist, ai_mm), by = "sp_group_dist") %>%
-  arrange(date, treeid, year) %>%
-  group_by(date, treeid, species, sp_group_dist, growth) %>%
-  mutate(incr_mm = if_else(incr_mm %in% 0, NA_real_, incr_mm),
-         incr_mm = na.approx(incr_mm),
-         pg = priorGrowth(incr_mm, windowLength = 10),
-         fg = followGrowth(incr_mm, windowLength = 10),
-         ai = fg - pg,
-         release = ifelse(row_number() %in% peakDetection(x = ai, threshold = first(ai_mm), nups = 1, mindist = 30), "yes", NA),
-         release = ifelse(lead(fg, 7) <= pg, NA, release),
-         release = ifelse(lag(pg, 7) >= fg, NA, release),
-         release = first(release[!is.na(release)]),
-         age = year - min(year) + missing_years + 1) %>%
-  filter(age %in% c(5:14)) %>%
-  summarise(incr_mean = mean(incr_mm, na.rm = T),
-            nyears = length(incr_mm[!is.na(incr_mm)]),
-            release = first(release)) %>%
-  ungroup() %>%
-  filter(nyears %in% 10) %>%
-  mutate(use = ifelse(growth %in% 1 & release %in% "yes", "no", "yes"),
-         release = ifelse(is.na(release), "no", release))
+# data.gap <- tbl(KELuser, "ring") %>%
+#   inner_join(., tbl(KELuser, "core") %>%
+#                filter(id %in% core.id,
+#                       !is.na(missing_mm),
+#                       !is.na(missing_years)),
+#              by = c("core_id" = "id")) %>%
+#   inner_join(., tbl(KELuser, "tree") %>%
+#                filter(id %in% tree.id,
+#                       growth %in% c(0, 1)),
+#              by = c("tree_id" = "id")) %>%
+#   inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
+#   inner_join(., tbl(KELuser, "plot") %>% filter(id %in% plot.id), by = c("plot_id" = "id")) %>%
+#   select(date, treeid, species, sp_group_dist, growth, missing_years, year, incr_mm) %>%
+#   collect() %>%
+#   inner_join(., ai %>% select(sp_group_dist, ai_mm), by = "sp_group_dist") %>%
+#   arrange(date, treeid, year) %>%
+#   group_by(date, treeid, species, sp_group_dist, growth) %>%
+#   mutate(incr_mm = if_else(incr_mm %in% 0, NA_real_, incr_mm),
+#          incr_mm = na.approx(incr_mm),
+#          pg = priorGrowth(incr_mm, windowLength = 10),
+#          fg = followGrowth(incr_mm, windowLength = 10),
+#          ai = fg - pg,
+#          release = ifelse(row_number() %in% peakDetection(x = ai, threshold = first(ai_mm), nups = 1, mindist = 30), "yes", NA),
+#          release = ifelse(lead(fg, 7) <= pg, NA, release),
+#          release = ifelse(lag(pg, 7) >= fg, NA, release),
+#          release = first(release[!is.na(release)]),
+#          age = year - min(year) + missing_years + 1) %>%
+#   filter(age %in% c(5:14)) %>%
+#   summarise(incr_mean = mean(incr_mm, na.rm = T),
+#             nyears = length(incr_mm[!is.na(incr_mm)]),
+#             release = first(release)) %>%
+#   ungroup() %>%
+#   filter(nyears %in% 10) %>%
+#   mutate(use = ifelse(growth %in% 1 & release %in% "yes", "no", "yes"),
+#          release = ifelse(is.na(release), "no", release))
 
 data.gap <- tbl(KELuser, "dist_data_gap") %>% collect()
 
@@ -176,15 +176,7 @@ gap <- data.gap %>%
             method = minimize_boot_metric, metric = abs_d_sens_spec,
             boot_cut = 10000, boot_stratify = T, use_midpoints = T)
 
-plot(gap) # export to .pdf - 4.72 x 7.48 in
-
-# jpeg("parameters/GAP.jpg", width = 19, height = 12, units = "cm", res = 1000, quality = 100)
-# 
-# plot(gap)
-# 
-# dev.off()
-
-openxlsx::write.xlsx(gap %>% select(-data, -roc_curve, -boot), "parameters/gap.xlsx")
+plot(gap) 
 
 # 1. 4. DBH ---------------------------------------------------------------
 
