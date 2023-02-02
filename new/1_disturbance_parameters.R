@@ -14,7 +14,6 @@ plot.id <- tbl(KELuser, "plot") %>%
          census %in% 1,
          !is.na(lng),
          !is.na(lat)) %>%
-  filter(!date %in% 2022) %>%
   pull(id)
 
 tree.id <- tbl(KELuser, "tree") %>%
@@ -192,10 +191,8 @@ plot(gap)
 #   mutate(growth_use = case_when(
 #     growth %in% 1 & layer %in% 11 ~ 1,
 #     growth %in% 0 & layer %in% 13 ~ 0))
-# 
-# write.table(data.dbh, "parameters/data/dbh_data.csv", sep = ",", row.names = F, na = "")
 
-data.dbh <- read.table("parameters/data/dbh_data.csv", sep = ",", header = T, stringsAsFactors = F)
+data.dbh <- tbl(KELuser, "dist_data_dbh") %>% collect()
 
 # 1. 4. 2. calculation ----------------------------------------------------
 
@@ -208,19 +205,9 @@ dbh <- data.dbh %>%
             method = minimize_boot_metric, metric = abs_d_sens_spec,
             boot_cut = 10000, boot_stratify = T, use_midpoints = T)
 
-plot(dbh) # export to .pdf - 4.72 x 7.48 in
-
-# jpeg("parameters/DBH.jpg", width = 19, height = 12, units = "cm", res = 1000, quality = 100)
-# 
-# plot(dbh)
-# 
-# dev.off()
-
-openxlsx::write.xlsx(dbh %>% select(-data, -roc_curve, -boot), "parameters/dbh.xlsx")
+plot(dbh)
 
 # 1. 5. GAPMAKER AGE ------------------------------------------------------
-
-# average age when tree reaches the minimum gapmaker DBH threshold [251 mm] (Frelich 2002)
 
 # 1. 5. 1. data -----------------------------------------------------------
 
@@ -234,10 +221,10 @@ openxlsx::write.xlsx(dbh %>% select(-data, -roc_curve, -boot), "parameters/dbh.x
 #              by = c("core_id" = "id")) %>%
 #   inner_join(., tbl(KELuser, "tree") %>% filter(id %in% tree.id), by = c("tree_id" = "id")) %>%
 #   inner_join(., tbl(KELuser, "plot") %>% filter(id %in% plot.id), by = c("plot_id" = "id")) %>%
-#   select(date, treeid, dbh_mm, core_id, missing_mm, missing_years, year, incr_mm) %>%
+#   select(date, treeid, dbh_mm, missing_mm, missing_years, year, incr_mm) %>%
 #   collect() %>%
-#   arrange(core_id, year) %>%
-#   group_by(core_id) %>%
+#   arrange(date, treeid, year) %>%
+#   group_by(date, treeid) %>%
 #   mutate(incr_mm = if_else(incr_mm %in% 0, NA_real_, incr_mm),
 #          incr_mm = na.approx(incr_mm),
 #          dbh_growth = ifelse(row_number() == 1, incr_mm + missing_mm, incr_mm),
@@ -247,19 +234,16 @@ openxlsx::write.xlsx(dbh %>% select(-data, -roc_curve, -boot), "parameters/dbh.x
 #          dbh_growth = round(dbh_growth * dbh_coef, 0),
 #          age = year - min(year) + missing_years + 1) %>%
 #   ungroup()
-# 
-# write.table(data.age, "parameters/data/age_data.csv", sep = ",", row.names = F, na = "")
 
-data.age <- read.table("parameters/data/age_data.csv", sep = ",", header = T, stringsAsFactors = F)
+data.age <- tbl(KELuser, "dist_data_age") %>% collect()
 
 # 1. 5. 2. calculation ----------------------------------------------------
 
-data.age %>%
-  filter(dbh_growth %in% 251) %>%
-  arrange(core_id, year) %>%
-  group_by(core_id) %>%
+age <- data.age %>%
+  filter(dbh_growth >= 251) %>%
+  arrange(date, treeid, year) %>%
+  group_by(date, treeid) %>%
   filter(row_number() == 1) %>%
   ungroup() %>%
-  summarise(age_mean = mean(age))
-
-# 115
+  summarise(age_mean = mean(age),
+            ntrees = n())
