@@ -6,7 +6,7 @@ distGetData <- function(ID){
     filter(id %in% ID) %>%
     inner_join(., tbl(KELuser, "tree") %>% select(tree_id = id, dbh_mm, species), by = "tree_id") %>%
     inner_join(., tbl(KELuser, "species_fk") %>% select(species = id, sp_group_dist), by = "species") %>%
-    select(sp_group_dist, tree_id, core_id = id, missing_mm, missing_years, dbh_mm) %>%
+    select(sp_group_dist, tree_id, dbh_mm, core_id = id, missing_mm, missing_years) %>%
     collect()
   
   ring.tbl <- tbl(KELuser, "ring") %>%
@@ -19,7 +19,7 @@ distGetData <- function(ID){
            incr_mm = na.approx(incr_mm)) %>%
     ungroup()
   
-  dist_param.tbl <- tbl(KELuser, "dp") %>% collect()
+  dist_param.tbl <- tbl(KELuser, "dist_param") %>% collect()
   
   data <- list(dist_param = dist_param.tbl, core = core.tbl, ring = ring.tbl)
   
@@ -33,10 +33,9 @@ priorGrowth <- function(x, windowLength = 10){
   rollapply( x, 
              width = windowLength,
              FUN = mean,
-             fill = NA,
-             align = "right",
              na.rm = T,
-             partial = TRUE)
+             partial = TRUE,
+             align = "right")
 }
 
 followGrowth <- function(x, windowLength = 10){
@@ -46,14 +45,13 @@ followGrowth <- function(x, windowLength = 10){
   rollapply( lead(x, 1), 
              width = windowLength,
              FUN = mean,
-             fill = NA,
-             align = "left",
              na.rm = T,
-             partial = TRUE)
+             partial = TRUE,
+             align = "left")
 }
 
 growthCalculate <- function(data.in, windowLength = 10){
-  #' @description calculate the growth change, age, and dbh for individual trees
+  #' @description calculate the growth, age, and dbh change for individual trees
   #' @param data.in list of 3 tables ('dist_param', 'core', 'ring'), output of 'distGetData' function
   #' @param windowLength length of the running window for ai (absolute increase) calculation (in years)
   
@@ -89,21 +87,22 @@ growthCalculate <- function(data.in, windowLength = 10){
   return(data.out)
 }
 
-peakDetection <- function(x, threshold, nups = 1, mindist = 30){
-  #' @description identify the index of year when release event occurs
-  #' @param x vector of ai (absolute increase) values
-  #' @param threshold minimum ai (absolute increase) value in mm
-  #' @param nups number of increasing steps before the peak
+peakDetection <- function(x, threshold, nups, mindist, trim = FALSE){
+  #' @description identify the index of year when release (tree) or disturbance (plot) event occurs
+  #' @param x vector of ai (absolute increase) or kde (kernel density estimation) values
+  #' @param threshold minimum ai (mm) or kde (%) value
+  #' @param nups minimum number of increasing steps before (and decreasing steps after) the peak
   #' @param mindist minimum distance between two consecutive peaks (in years)
+  #' @param trim remove missing values (TRUE/FALSE)
   
-  # x <- ifelse(is.na(x), -0.2, x)
+  if(trim == TRUE){x <- x[!is.na(x)]}
   
-  x <- ifelse(is.na(x), 0, x)
+  if(TRUE %in% is.na(x)) stop("The input data contains missing values!")
   
-  x <- findpeaks(x, 
+  x <- findpeaks(x,
+                 nups = nups,
                  minpeakheight = threshold,
-                 minpeakdistance = mindist,
-                 nups = nups) 
+                 minpeakdistance = mindist) 
   
   if(is.null(x)){
     NA
@@ -149,7 +148,7 @@ eventCalculate <- function(data.in, gapAge = c(5:14), nprol = 7){
   release.event <- data.in$growth %>%
     arrange(core_id, year) %>%
     group_by(core_id) %>%
-    mutate(event = ifelse(row_number() %in% peakDetection(x = ai, threshold = aith[first(sp_group_dist)], nups = 1, mindist = 30), "release", NA),
+    mutate(event = ifelse(row_number() %in% peakDetection(x = ai, threshold = aith[first(sp_group_dist)], nups = 1, mindist = 30, trim = T), "release", NA),
            event = ifelse(lead(fg, nprol) <= pg, NA, event),
            event = ifelse(lag(pg, nprol) >= fg, NA, event),
            event = ifelse(dbh_mm >= dbhth[first(sp_group_dist)], NA, event)) %>%
@@ -186,8 +185,8 @@ eventCalculate <- function(data.in, gapAge = c(5:14), nprol = 7){
     mutate(keeprel = keepRelease(year, type = event, n = 30)) %>%
     ungroup() %>%
     filter(keeprel %in% "yes") %>%
-    inner_join(., data.in$growth %>% distinct(., sp_group_dist, core_id, tree_id), by = "core_id") %>%
-    select(sp_group_dist, tree_id, year, event) 
+    inner_join(., data.in$growth %>% distinct(., core_id, tree_id), by = "core_id") %>%
+    select(tree_id, year, event) 
   
   return(data.out)
 }
