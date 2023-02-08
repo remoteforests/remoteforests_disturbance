@@ -29,7 +29,7 @@ core.id <- tbl(KELuser, "core") %>%
          corestatus %in% c(0, 1)) %>%
   pull(id)
 
-# 1. DISTURBANCE PARAMETERS -----------------------------------------------
+# 1. PARAMETERS -----------------------------------------------------------
 
 # 1. 1. CA ----------------------------------------------------------------
 
@@ -247,3 +247,7 @@ age <- data.age %>%
   ungroup() %>%
   summarise(age_mean = mean(age),
             ntrees = n())
+
+# ! close database connection ---------------------------------------------
+
+poolClose(KELuser)
