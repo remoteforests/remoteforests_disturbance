@@ -19,31 +19,27 @@ plot.id <- tbl(KELuser, "plot") %>%
 tree.id <- tbl(KELuser, "tree") %>%
   filter(dbh_mm >= 100,
          status %in% 1,
-         !treetype %in% c("g", "r", "t"),
+         growth %in% 1,
+         treetype %in% "0" & onplot %in% c(1, 2) | treetype %in% c("m", "x"),
          !species %in% c("Lians", "99")) %>%
   pull(id)
 
 core.id <- tbl(KELuser, "core") %>%
   filter(coretype %in% 1,
          !crossdated %in% c(12, 20:22, 99),
-         corestatus %in% c(0, 1)) %>%
+         corestatus %in% c(0, 1),
+         !is.na(missing_mm),
+         !is.na(missing_years),
+         missing_mm < 30,
+         missing_years < 30) %>%
   pull(id)
 
 # 2. TREE-LEVEL -----------------------------------------------------------
 
 # 2. 1. data --------------------------------------------------------------
 
-ID <- tbl(KELuser, "core") %>%
-  filter(id %in% core.id,
-         !is.na(missing_mm),
-         !is.na(missing_years),
-         missing_mm < 30,
-         missing_years < 30) %>%
-  inner_join(., tbl(KELuser, "tree") %>% 
-               filter(id %in% tree.id,
-                      growth %in% 1,
-                      treetype %in% "0" & onplot %in% c(1, 2) | treetype %in% c("m", "x")),
-             by = c("tree_id" = "id")) %>%
+ID <- tbl(KELuser, "core") %>% filter(id %in% core.id) %>%
+  inner_join(., tbl(KELuser, "tree") %>% filter(id %in% tree.id), by = c("tree_id" = "id")) %>%
   inner_join(., tbl(KELuser, "plot") %>% filter(id %in% plot.id), by = c("plot_id" = "id")) %>%
   pull(id)
 

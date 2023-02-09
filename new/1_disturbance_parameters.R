@@ -1,6 +1,6 @@
 # 0. setup ----------------------------------------------------------------
 
-library(tidyverse);library(pool);library(lme4);library(zoo);library(pracma);library(cutpointr)
+library(tidyverse);library(pool);library(zoo);library(pracma);library(lme4);library(cutpointr)
 
 source("new/pw.R")
 
