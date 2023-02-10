@@ -14,7 +14,6 @@ plot.id <- tbl(KELuser, "plot") %>%
          census %in% 1,
          !is.na(lng),
          !is.na(lat)) %>%
-  filter(!date %in% 2022) %>%
   pull(id)
 
 tree.id <- tbl(KELuser, "tree") %>%
