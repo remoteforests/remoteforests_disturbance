@@ -148,7 +148,7 @@ ai <- data.ai %>%
 #          pg = priorGrowth(incr_mm, windowLength = 10),
 #          fg = followGrowth(incr_mm, windowLength = 10),
 #          ai = fg - pg,
-#          release = ifelse(row_number() %in% peakDetection(x = ai, threshold = first(ai_mm), nups = 1, mindist = 30), "yes", NA),
+#          release = ifelse(row_number() %in% peakDetection(x = ai, threshold = first(ai_mm), nups = 1, mindist = 30, trim = T), "yes", NA),
 #          release = ifelse(lead(fg, 7) <= pg, NA, release),
 #          release = ifelse(lag(pg, 7) >= fg, NA, release),
 #          release = first(release[!is.na(release)]),
