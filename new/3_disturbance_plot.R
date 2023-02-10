@@ -46,13 +46,13 @@ X <- tbl(KELuser, "core") %>% filter(coretype %in% 1) %>%
   inner_join(., tbl(KELuser, "spatial_hierarchy"), by = "plotid") %>%
   select(stand, subplot, plotid, sp_type, status, growth, dbh_mm) %>%
   collect() %>%
-  mutate(ca = case_when(
+  mutate(ca_m2 = case_when(
           sp_type %in% "broadleaved" ~ predict(object = broad, newdata = ., allow.new.levels = T),
           sp_type %in% "coniferous" ~  predict(object = conif, newdata = ., allow.new.levels = T)),
-         ca = ca^2) %>%
+         ca_m2 = ca_m2^2) %>%
   group_by(plotid) %>%
-  summarise(ca_alive = sum(ca[status %in% 1 & growth %in% 1]),
-            ca_dead = sum(ca[status %in% c(2:4, 11:14, 16:23)])) %>%
+  summarise(ca_alive = sum(ca_m2[status %in% 1 & growth %in% 1]),
+            ca_dead = sum(ca_m2[status %in% c(2:4, 11:14, 16:23)])) %>%
   mutate(pct_dead = (ca_dead / (ca_alive + ca_dead)) * 100) %>%
   filter(pct_dead > 5) %>%
   pull(plotid)
@@ -108,22 +108,15 @@ data.unsampled <- tbl(KELuser, "core") %>%
 # 3. 3. 3. sampled + unsampled trees --------------------------------------
 
 data.all <- bind_rows(data.sampled, data.unsampled) %>%
-  mutate(ca = case_when(
+  mutate(ca_m2 = case_when(
           sp_type %in% "broadleaved" ~ predict(object = broad, newdata = ., allow.new.levels = T),
           sp_type %in% "coniferous" ~  predict(object = conif, newdata = ., allow.new.levels = T)),
-         ca = ca^2)
+         ca_m2 = ca_m2^2)
 
 # 3. 4. bootstrapping -----------------------------------------------------
 
-# # minimum number of available tree records (valid + unsampled) = 12
-# data.use %>% 
-#   distinct(., plotid, treeid) %>%
-#   group_by(plotid) %>%
-#   summarise(n = n()) %>%
-#   summarise(n = min(n))
-
-data.boot <- data.use %>% 
-  distinct(., plotid, treeid) %>%
+data.boot <- data.all %>% 
+  distinct(., plotid, tree_id) %>%
   slice(rep(1:nrow(.), each = 1000)) %>%
   mutate(rep = rep(1:1000, times = nrow(.) / 1000)) 
 
@@ -131,26 +124,41 @@ set.seed(1)
 
 data.dist.boot <- data.boot %>%
   group_by(plotid, rep) %>%
-  # number of samples for bootstrapping = 12 - the minimum number of available tree records (valid + unsampled)
   slice_sample(., n = 12, replace = TRUE) %>%
   ungroup() %>%
-  left_join(., data.use %>% select(plotid, treeid, year, event, ca, year_min), by = c("plotid", "treeid")) %>%
+  left_join(., data.all %>% select(plotid, tree_id, year_min, year_max, event, year, ca_m2), by = c("plotid", "tree_id")) %>%
   do({
+    
     x <- .
-    y <- x %>% group_by(plotid, rep, treeid) %>% filter(year %in% first(year), !event %in% "unsampled") %>% group_by(plotid, rep) %>% 
-      # filter(n() >= 10) %>% slice_min(., order_by = year_min, n = 10, with_ties = F) %>% summarise(year_min = max(year_min))
-      filter(n() >= 1) %>% summarise(year_min = min(year_min), n_valid = n())
-    inner_join(
-      x %>% filter(!event %in% "unsampled") %>% group_by(plotid, rep, year) %>% summarise(ca = sum(ca)),
-      x %>% group_by(plotid, rep, treeid) %>% filter(year %in% first(year)) %>% group_by(plotid, rep) %>% 
-        summarise(ca_total = sum(ca), ca_min = min(ca[!event %in% "unsampled"])) %>% 
-        inner_join(., y, by = c("plotid", "rep")),
-      by = c("plotid", "rep")
-    ) 
+    
+    x1 <- x %>% 
+      filter(!event %in% "unsampled") %>% 
+      group_by(plotid, rep, year) %>% 
+      summarise(ca = sum(ca_m2)) %>%
+      ungroup()
+    
+    x2 <- x %>% 
+      group_by(plotid, rep, tree_id) %>% 
+      filter(year %in% first(year)) %>% 
+      group_by(plotid, rep) %>% 
+      summarise(ca_total = sum(ca_m2)) %>%
+      ungroup()
+    
+    x3 <- x %>% 
+      group_by(plotid, rep, tree_id) %>% 
+      filter(!event %in% "unsampled", 
+             year %in% first(year)) %>% 
+      group_by(plotid, rep) %>% 
+      filter(n() >= 1) %>% 
+      summarise(year_min = min(year_min),
+                year_max = max(year_max),
+                ncores = n()) %>%
+      ungroup()
+    
+    inner_join(x1, x2 %>% inner_join(., x3, by = c("plotid", "rep")), by = c("plotid", "rep"))
+    
   }) %>%
-  ungroup() %>%
-  mutate(ca = ca * 100 / ca_total,
-         ca_min = ca_min * 100 / ca_total)
+  mutate(ca = ca * 100 / ca_total)
 
 beg <- min(data.dist.boot$year)
 end <- max(data.dist.boot$year)
@@ -162,16 +170,28 @@ for (p in unique(data.dist.boot$plotid)) {
   x <- data.dist.boot %>% filter(plotid %in% p) 
   
   out <- inner_join(
-    x %>% select(plotid, rep, year, ca) %>% group_by(plotid, rep) %>% complete(year = beg:end, fill = list(ca = 0)) %>% 
-      group_by(plotid, year) %>% summarise(ca = mean(ca)),
-    x %>% distinct(., plotid, rep, year_min, ca_min, n_valid) %>% group_by(plotid) %>%
-      summarise(year_min = round(mean(year_min), 0), ca_min = mean(ca_min), n_valid = round(mean(n_valid), 0)),
-    by = "plotid") %>% ungroup()
+    x %>% 
+      select(plotid, rep, year, ca) %>% 
+      group_by(plotid, rep) %>% 
+      complete(year = beg:end, fill = list(ca = 0)) %>% 
+      group_by(plotid, year) %>% 
+      summarise(ca = mean(ca)) %>%
+      ungroup(),
+    x %>% 
+      distinct(., plotid, rep, year_min, year_max, ncores) %>% 
+      group_by(plotid) %>%
+      summarise(year_min = round(mean(year_min), 0),
+                year_max = round(mean(year_max), 0),
+                ncores = round(mean(ncores), 0)) %>%
+      ungroup(),
+    by = "plotid")
   
   data.dist <- bind_rows(data.dist, out)
   
   remove(x, out)
 }
+
+write.table(data.dist, "new/data_dist.csv", sep = ",", row.names = F, na = "")
 
 # 3. 5. kernel density estimation & peak detection ------------------------
 
@@ -199,3 +219,7 @@ data.peaks <- data.kde %>%
   group_by(plotid) %>%
   filter(row_number() %in% peakDetection(x = kde, threshold = 10, nups = 5, mindist = 10)) %>%
   ungroup()
+
+# ! close database connection ---------------------------------------------
+
+poolClose(KELuser)
