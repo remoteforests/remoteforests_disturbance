@@ -1,6 +1,6 @@
 distGetData <- function(ID){
-  #' @description download data from the database based on the specified core id
-  #' @param ID vector of core id to be used for the calcuation
+  #' @description download data from database based on specified core id
+  #' @param ID vector of core id to be used for disturbance calcuation
   
   core.tbl <- tbl(KELuser, "core") %>%
     filter(id %in% ID) %>%
@@ -27,9 +27,9 @@ distGetData <- function(ID){
 }
 
 priorGrowth <- function(x, windowLength = 10){
-  #' @description for each year calculate average growth in the specified preceeding period (including the focal year)
-  #' @param x vector of incr_mm values
-  #' @param windowLength length of the running window in years
+  #' @description for each year calculate average growth in specified preceeding period (including focal year)
+  #' @param x chronologically arranged vector of incr_mm values
+  #' @param windowLength length of running window (in years)
   rollapply( x, 
              width = windowLength,
              FUN = mean,
@@ -39,9 +39,9 @@ priorGrowth <- function(x, windowLength = 10){
 }
 
 followGrowth <- function(x, windowLength = 10){
-  #' @description for each year calculate average growth in the specified following period (excluding the focal year)
-  #' @param x vector of incr_mm values
-  #' @param windowLength length of the running window in years
+  #' @description for each year calculate average growth in specified following period (excluding focal year)
+  #' @param x chronologically arranged vector of incr_mm values
+  #' @param windowLength length of running window (in years)
   rollapply( lead(x, 1), 
              width = windowLength,
              FUN = mean,
@@ -51,9 +51,9 @@ followGrowth <- function(x, windowLength = 10){
 }
 
 growthCalculate <- function(data.in, windowLength = 10){
-  #' @description calculate the growth, age, and dbh change for individual trees
+  #' @description calculate growth, age, and dbh change for individual trees
   #' @param data.in list of 3 tables ('dist_param', 'core', 'ring'), output of 'distGetData' function
-  #' @param windowLength length of the running window for ai (absolute increase) calculation (in years)
+  #' @param windowLength length of running window for ai (absolute increase) calculation (in years)
   
   # data quality check
   # options(error = NULL) # not to enter debug mode
@@ -62,7 +62,7 @@ growthCalculate <- function(data.in, windowLength = 10){
   if(!is.list(data.in)) stop("The input data is not a list of 3 data tables.")
   if(!identical(c("core","dist_param","ring"), ls(data.in))) stop("The input data tables should be 'dist_param', 'core', and 'ring'.")
   
-  # calculate the dbh, age, and growth change
+  # calculate dbh, age, and growth change
   growth.tbl <- inner_join(data.in$core, data.in$ring, by = "core_id") %>%
     arrange(core_id, year) %>%
     group_by(core_id) %>%
@@ -88,10 +88,10 @@ growthCalculate <- function(data.in, windowLength = 10){
 }
 
 peakDetection <- function(x, threshold, nups, mindist, trim = FALSE){
-  #' @description identify the index of year when release (tree) or disturbance (plot) event occurs
-  #' @param x vector of ai (absolute increase) or kde (kernel density estimation) values
+  #' @description identify index of year when release (tree) or disturbance (plot) event occurs
+  #' @param x chronologically arranged vector of ai (absolute increase) or kde (kernel density estimation) values
   #' @param threshold minimum ai (mm) or kde (%) value
-  #' @param nups minimum number of increasing steps before (and decreasing steps after) the peak
+  #' @param nups minimum number of increasing steps before (and decreasing steps after) peak
   #' @param mindist minimum distance between two consecutive peaks (in years)
   #' @param trim remove missing values (TRUE/FALSE)
   
@@ -112,10 +112,10 @@ peakDetection <- function(x, threshold, nups, mindist, trim = FALSE){
 }
 
 keepRelease <- function(year, type, n = 30){
-  #' @description calculate the proximity of gap origin and release events
+  #' @description calculate proximity of gap origin and release events
   #' @param year vector of years of individual events
-  #' @param type type of the event (release or gap)
-  #' @param n mimimal distance between the gap and release events (years)
+  #' @param type type of event (release or gap)
+  #' @param n mimimal distance between gap and release events (in years)
   
   keep <- rep("yes", length(year))
   
@@ -128,10 +128,10 @@ keepRelease <- function(year, type, n = 30){
 }
 
 eventCalculate <- function(data.in, gapAge = c(5:14), nprol = 7){
-  #' @description calculate the canopy accession events for individual trees
+  #' @description calculate canopy accession events for individual trees
   #' @param data.in list of 2 tables ('dist_param', 'growth'), output of 'growthCalculate' function
-  #' @param nprol number of years to consider the release as sustained
-  #' @param gapAge period of age when the tree is tested for gap origin
+  #' @param nprol number of years to consider release as sustained
+  #' @param gapAge period of age when tree is tested for gap origin
   
   # data quality check
   # options(error = NULL) # not to enter debug mode
@@ -178,7 +178,7 @@ eventCalculate <- function(data.in, gapAge = c(5:14), nprol = 7){
     ungroup() %>%
     mutate(event = "no event")
   
-  # merge the events together -> perform 'keepRelease' check
+  # merge events together -> perform 'keepRelease' check
   data.out <- bind_rows(release.event, gap.event, no.event) %>%
     arrange(core_id, year) %>%
     group_by(core_id) %>%
@@ -191,17 +191,17 @@ eventCalculate <- function(data.in, gapAge = c(5:14), nprol = 7){
   return(data.out)
 }
 
-mdsFun <- function(ca, k = 30, bw = 5, st = 7){
-  #' @description return a vector of the fitted KDE function
-  #' @param ca arranged vector of the canopy area values
+kdeFun <- function(ca_per, k = 30, bw = 5, st = 7){
+  #' @description return vector of kde (kernel density estimation) values
+  #' @param ca_per chronologically arranged vector of disturbed canopy area values (%)
   #' @param k window length
   #' @param bw smoothing bandwidth
-  #' @param st standartization value to scale back to canopy area
+  #' @param st standartization value to scale back to canopy area percentage
   
-  rollapply( ca, 
+  rollapply( ca_per, 
              width = k,
              FUN = function(x){n <- length(x); density(1:n, weights = x, bw = bw, n = n)$y[round((n+1)/2)]* 100/st},
              # fill = 0,
-             align = "center",
-             partial = TRUE)
+             # partial = TRUE,
+             align = "center")
 }
