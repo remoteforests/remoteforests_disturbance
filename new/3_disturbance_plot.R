@@ -52,8 +52,8 @@ X <- tbl(KELuser, "core") %>% filter(coretype %in% 1) %>%
   group_by(plotid) %>%
   summarise(ca_alive = sum(ca_m2[status %in% 1 & growth %in% 1]),
             ca_dead = sum(ca_m2[status %in% c(2:4, 11:14, 16:23)])) %>%
-  mutate(pct_dead = (ca_dead / (ca_alive + ca_dead)) * 100) %>%
-  filter(pct_dead > 5) %>%
+  mutate(dead_pct = (ca_dead / (ca_alive + ca_dead)) * 100) %>%
+  filter(dead_pct > 5) %>%
   pull(plotid)
 
 # 3. 3. data --------------------------------------------------------------
@@ -133,7 +133,7 @@ data.dist.boot <- data.boot %>%
     x1 <- x %>% 
       filter(!event %in% "unsampled") %>% 
       group_by(plotid, rep, year) %>% 
-      summarise(ca = sum(ca_m2)) %>%
+      summarise(ca_event = sum(ca_m2)) %>%
       ungroup()
     
     x2 <- x %>% 
@@ -157,7 +157,7 @@ data.dist.boot <- data.boot %>%
     inner_join(x1, x2 %>% inner_join(., x3, by = c("plotid", "rep")), by = c("plotid", "rep"))
     
   }) %>%
-  mutate(ca = ca * 100 / ca_total)
+  mutate(ca_pct = ca_event * 100 / ca_total)
 
 beg <- min(data.dist.boot$year)
 end <- max(data.dist.boot$year)
@@ -170,11 +170,11 @@ for (p in unique(data.dist.boot$plotid)) {
   
   out <- inner_join(
     x %>% 
-      select(plotid, rep, year, ca) %>% 
+      select(plotid, rep, year, ca_pct) %>% 
       group_by(plotid, rep) %>% 
-      complete(year = beg:end, fill = list(ca = 0)) %>% 
+      complete(year = beg:end, fill = list(ca_pct = 0)) %>% 
       group_by(plotid, year) %>% 
-      summarise(ca = mean(ca)) %>%
+      summarise(ca_pct = mean(ca_pct)) %>%
       ungroup(),
     x %>% 
       distinct(., plotid, rep, year_min, year_max, ncores) %>% 
@@ -194,30 +194,58 @@ write.table(data.dist, "new/data_dist.csv", sep = ",", row.names = F, na = "")
 
 # 3. 5. kernel density estimation & peak detection ------------------------
 
-data.kde <- tbl(KELuser, "tree") %>%
-  inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
-  inner_join(., tbl(KELuser, "dp"), by = "sp_group_dist") %>%
-  distinct(., plot_id, gapmaker_age) %>%
-  inner_join(., tbl(KELuser, "plot") %>% filter(plotid %in% local(data.dist$plotid) & census %in% 1), by = c("plot_id" = "id")) %>%
-  # cutting year according to the average age when tree reaches the minimum gapmaker DBH threshold [251 mm] (Frelich 2002)
-  # maximum year due to the limits of release detection (follow growth[10] + sustained release[7])
-  mutate(year_cut = date - gapmaker_age + 1,
-         year_max = date - 17) %>%
-  select(plotid, year_cut, year_max) %>%
-  collect() %>%
-  right_join(., data.dist, by = "plotid") %>%
-  # cut the chronology by year_cut, year_min, and year_max
-  filter(year > year_cut, year >= year_min, year <= year_max) %>%
-  group_by(plotid) %>%
-  complete(year = (min(year)-30):(max(year)+15), fill = list(ca = 0)) %>%
-  mutate(kde = kdeFun(ca, k = 30, bw = 5, st = 7)) %>%
-  filter(year %in% c((min(year)+15):(max(year)-15))) %>%
-  ungroup()
+data.dist <- read.table("new/data_dist.csv", sep = ",", header = T, stringsAsFactors = F)
 
-data.peaks <- data.kde %>%
+
+# 3. 5. 1. full chronologies ----------------------------------------------
+
+data.kde.full <- data.dist %>%
+  filter(year >= year_min, year <= year_max) %>%
+  group_by(plotid) %>%
+  #complete(year = (min(year)-30):(max(year)+15), fill = list(ca_per = 0)) %>%
+  mutate(kde = kdeFun(ca_per, k = 30, bw = 5, st = 7)) %>%
+  #filter(year %in% c((min(year)+15):(max(year)-15))) %>%
+  ungroup() %>%
+  mutate(type = "full")
+
+data.peaks.full <- data.kde.full %>%
   group_by(plotid) %>%
   filter(row_number() %in% peakDetection(x = kde, threshold = 10, nups = 5, mindist = 10)) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(type = "full")
+
+# 3. 5. 2. cut chronologies -----------------------------------------------
+
+data.kde.cut <- tbl(KELuser, "tree") %>%
+  inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
+  inner_join(., tbl(KELuser, "dist_param"), by = "sp_group_dist") %>%
+  distinct(., plot_id, gapmaker_age) %>%
+  inner_join(., tbl(KELuser, "plot") %>% filter(plotid %in% local(data.dist$plotid) & census %in% 1), by = c("plot_id" = "id")) %>%
+  mutate(year_cut = date - gapmaker_age + 1) %>%
+  select(plotid, year_cut) %>%
+  collect() %>%
+  right_join(., data.dist, by = "plotid") %>%
+  filter(year >= year_min, year <= year_max, year > year_cut) %>%
+  group_by(plotid) %>%
+  mutate(year_min = min(year)) %>%
+  select(-year_cut) %>%
+  #complete(year = (min(year)-30):(max(year)+15), fill = list(ca_per = 0)) %>%
+  mutate(kde = kdeFun(ca_per, k = 30, bw = 5, st = 7)) %>%
+  #filter(year %in% c((min(year)+15):(max(year)-15))) %>%
+  ungroup() %>%
+  mutate(type = "cut")
+
+data.peaks.cut <- data.kde.cut %>%
+  group_by(plotid) %>%
+  filter(row_number() %in% peakDetection(x = kde, threshold = 10, nups = 5, mindist = 10)) %>%
+  ungroup() %>%
+  mutate(type = "cut")
+
+# 3. 5. 3. full + cut chronologies ----------------------------------------
+
+data.kde.all <- bind_rows(data.kde.full, data.kde.cut)
+
+data.peaks.all <- bind_rows(data.peaks.full, data.peaks.cut)
 
 # ! close database connection ---------------------------------------------
 
