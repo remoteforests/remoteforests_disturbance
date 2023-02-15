@@ -202,9 +202,9 @@ data.dist <- read.table("new/data_dist.csv", sep = ",", header = T, stringsAsFac
 data.kde.full <- data.dist %>%
   filter(year >= year_min, year <= year_max) %>%
   group_by(plotid) %>%
-  #complete(year = (min(year)-30):(max(year)+15), fill = list(ca_per = 0)) %>%
-  mutate(kde = kdeFun(ca_per, k = 30, bw = 5, st = 7)) %>%
-  #filter(year %in% c((min(year)+15):(max(year)-15))) %>%
+  complete(year = (min(year)-15):(max(year)+15), fill = list(ca_pct = 0)) %>%
+  mutate(kde = kdeFun(ca_pct, k = 30, bw = 5, st = 7)) %>%
+  filter(year %in% c((min(year)+15):(max(year)-15))) %>%
   ungroup() %>%
   mutate(type = "full")
 
@@ -229,9 +229,9 @@ data.kde.cut <- tbl(KELuser, "tree") %>%
   group_by(plotid) %>%
   mutate(year_min = min(year)) %>%
   select(-year_cut) %>%
-  #complete(year = (min(year)-30):(max(year)+15), fill = list(ca_per = 0)) %>%
-  mutate(kde = kdeFun(ca_per, k = 30, bw = 5, st = 7)) %>%
-  #filter(year %in% c((min(year)+15):(max(year)-15))) %>%
+  complete(year = (min(year)-15):(max(year)+15), fill = list(ca_pct = 0)) %>%
+  mutate(kde = kdeFun(ca_pct, k = 30, bw = 5, st = 7)) %>%
+  filter(year %in% c((min(year)+15):(max(year)-15))) %>%
   ungroup() %>%
   mutate(type = "cut")
 

@@ -201,7 +201,6 @@ kdeFun <- function(ca_per, k = 30, bw = 5, st = 7){
   rollapply( ca_per, 
              width = k,
              FUN = function(x){n <- length(x); density(1:n, weights = x, bw = bw, n = n)$y[round((n+1)/2)]* 100/st},
-             # fill = 0,
-             # partial = TRUE,
+             partial = TRUE,
              align = "center")
 }
