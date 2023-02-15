@@ -190,19 +190,14 @@ for (p in unique(data.dist.boot$plotid)) {
   remove(x, out)
 }
 
-write.table(data.dist, "new/data_dist.csv", sep = ",", row.names = F, na = "")
-
 # 3. 5. kernel density estimation & peak detection ------------------------
-
-data.dist <- read.table("new/data_dist.csv", sep = ",", header = T, stringsAsFactors = F)
-
 
 # 3. 5. 1. full chronologies ----------------------------------------------
 
 data.kde.full <- data.dist %>%
   filter(year >= year_min, year <= year_max) %>%
   group_by(plotid) %>%
-  complete(year = (min(year)-15):(max(year)+15), fill = list(ca_pct = 0)) %>%
+  complete(year = (min(year)-30):(max(year)+30), fill = list(ca_pct = 0)) %>%
   mutate(kde = kdeFun(ca_pct, k = 30, bw = 5, st = 7)) %>%
   filter(year %in% c((min(year)+15):(max(year)-15))) %>%
   ungroup() %>%
@@ -229,7 +224,7 @@ data.kde.cut <- tbl(KELuser, "tree") %>%
   group_by(plotid) %>%
   mutate(year_min = min(year)) %>%
   select(-year_cut) %>%
-  complete(year = (min(year)-15):(max(year)+15), fill = list(ca_pct = 0)) %>%
+  complete(year = (min(year)-30):(max(year)+30), fill = list(ca_pct = 0)) %>%
   mutate(kde = kdeFun(ca_pct, k = 30, bw = 5, st = 7)) %>%
   filter(year %in% c((min(year)+15):(max(year)-15))) %>%
   ungroup() %>%
@@ -243,9 +238,9 @@ data.peaks.cut <- data.kde.cut %>%
 
 # 3. 5. 3. full + cut chronologies ----------------------------------------
 
-data.kde.all <- bind_rows(data.kde.full, data.kde.cut)
+data.kde.all <- bind_rows(data.kde.full, data.kde.cut) %>% filter(!is.na(ncores))
 
-data.peaks.all <- bind_rows(data.peaks.full, data.peaks.cut)
+data.peaks.all <- bind_rows(data.peaks.full, data.peaks.cut) %>% filter(!is.na(ncores))
 
 # ! close database connection ---------------------------------------------
 
