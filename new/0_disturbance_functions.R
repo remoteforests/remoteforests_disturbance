@@ -1,5 +1,5 @@
 distGetData <- function(ID){
-  #' @description download data from database based on specified core id
+  #' @description downloads data from database based on specified core id
   #' @param ID vector of core id to be used for disturbance calcuation
   
   core.tbl <- tbl(KELuser, "core") %>%
@@ -27,7 +27,7 @@ distGetData <- function(ID){
 }
 
 priorGrowth <- function(x, windowLength = 10){
-  #' @description for each year calculate average growth in specified preceeding period (including focal year)
+  #' @description for each year calculates average growth in specified preceeding period (including focal year)
   #' @param x chronologically arranged vector of incr_mm values
   #' @param windowLength length of running window (in years)
   rollapply( x, 
@@ -39,7 +39,7 @@ priorGrowth <- function(x, windowLength = 10){
 }
 
 followGrowth <- function(x, windowLength = 10){
-  #' @description for each year calculate average growth in specified following period (excluding focal year)
+  #' @description for each year calculates average growth in specified following period (excluding focal year)
   #' @param x chronologically arranged vector of incr_mm values
   #' @param windowLength length of running window (in years)
   rollapply( lead(x, 1), 
@@ -51,7 +51,7 @@ followGrowth <- function(x, windowLength = 10){
 }
 
 growthCalculate <- function(data.in, windowLength = 10){
-  #' @description calculate growth, age, and dbh change for individual trees
+  #' @description calculates growth, age, and dbh change for individual trees
   #' @param data.in list of 3 tables ('dist_param', 'core', 'ring'), output of 'distGetData' function
   #' @param windowLength length of running window for ai (absolute increase) calculation (in years)
   
@@ -88,7 +88,7 @@ growthCalculate <- function(data.in, windowLength = 10){
 }
 
 peakDetection <- function(x, threshold, nups, mindist, trim = FALSE){
-  #' @description identify index of year when release (tree) or disturbance (plot) event occurs
+  #' @description identifies index of year when release (tree) or disturbance (plot) event occurs
   #' @param x chronologically arranged vector of ai (absolute increase) or kde (kernel density estimation) values
   #' @param threshold minimum ai (mm) or kde (%) value
   #' @param nups minimum number of increasing steps before (and decreasing steps after) peak
@@ -112,7 +112,7 @@ peakDetection <- function(x, threshold, nups, mindist, trim = FALSE){
 }
 
 keepRelease <- function(year, type, n = 30){
-  #' @description calculate proximity of gap origin and release events
+  #' @description calculates proximity of gap origin and release events
   #' @param year vector of years of individual events
   #' @param type type of event (release or gap)
   #' @param n mimimal distance between gap and release events (in years)
@@ -128,7 +128,7 @@ keepRelease <- function(year, type, n = 30){
 }
 
 eventCalculate <- function(data.in, gapAge = c(5:14), nprol = 7){
-  #' @description calculate canopy accession events for individual trees
+  #' @description calculates canopy accession events for individual trees
   #' @param data.in list of 2 tables ('dist_param', 'growth'), output of 'growthCalculate' function
   #' @param nprol number of years to consider release as sustained
   #' @param gapAge period of age when tree is tested for gap origin
@@ -192,7 +192,7 @@ eventCalculate <- function(data.in, gapAge = c(5:14), nprol = 7){
 }
 
 kdeFun <- function(ca_per, k = 30, bw = 5, st = 7){
-  #' @description return vector of kde (kernel density estimation) values
+  #' @description returns vector of kde (kernel density estimation) values
   #' @param ca_per chronologically arranged vector of disturbed canopy area values (%)
   #' @param k window length
   #' @param bw smoothing bandwidth
