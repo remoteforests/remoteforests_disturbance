@@ -4,9 +4,9 @@ library(tidyverse);library(pool);library(ggrepel)
 
 source("new/pw.R")
 
-# 4. GRAPHS ---------------------------------------------------------------
+# 5. GRAPHS ---------------------------------------------------------------
 
-# 4. 1. data --------------------------------------------------------------
+# 5. 1. data --------------------------------------------------------------
 
 data.all <- tbl(KELuser, "dist_event") %>% mutate(peak = "yes") %>%
   right_join(., tbl(KELuser, "dist_chrono"), by = c("dist_chrono_id" = "id")) %>%
@@ -15,7 +15,7 @@ data.all <- tbl(KELuser, "dist_event") %>% mutate(peak = "yes") %>%
   select(plotid, ncores, type, year, ca_pct, kde, peak) %>%
   collect()
 
-# 4. 2. plotting ----------------------------------------------------------
+# 5. 2. plotting ----------------------------------------------------------
 
 pdf("new/plots.pdf", width = 18, height = 10, pointsize = 12, onefile = T)
 
