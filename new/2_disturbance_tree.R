@@ -18,8 +18,8 @@ plot.id <- tbl(KELuser, "plot") %>%
 
 tree.id <- tbl(KELuser, "tree") %>%
   filter(dbh_mm >= 100,
-         status %in% 1,
-         growth %in% 1,
+         !status %in% c(0, 10, 15, 99),
+         growth %in% c(-1, 1),
          treetype %in% "0" & onplot %in% c(1, 2) | treetype %in% c("m", "x"),
          !species %in% c("Lians", "99")) %>%
   pull(id)
