@@ -18,6 +18,8 @@ plot.id <- tbl(KELuser, "plot") %>%
 
 tree.id <- tbl(KELuser, "tree") %>%
   filter(dbh_mm >= 100,
+         !status %in% c(0, 10, 15, 99),
+         growth %in% c(-1, 1),
          treetype %in% "0" & onplot %in% c(1, 2) | treetype %in% c("m", "x"),
          !species %in% c("Lians", "99")) %>%
   pull(id)
@@ -36,29 +38,9 @@ data.broad <- data.ca %>% filter(sp_type %in% "broadleaved")
 
 broad <- lmer(sqrt(ca_m2) ~ dbh_mm + (1|stand) + (1|subplot) + (1|plotid), data = data.broad)
 
-# 3. 2. exclude recently disturbed plots ----------------------------------
+# 3. 2. data --------------------------------------------------------------
 
-X <- tbl(KELuser, "core") %>% filter(coretype %in% 1) %>%
-  inner_join(., tbl(KELuser, "tree") %>% filter(id %in% tree.id), by = c("tree_id" = "id")) %>%
-  inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
-  inner_join(., tbl(KELuser, "plot") %>% filter(id %in% plot.id) %>% select(-stand, -subplot), by = c("plot_id" = "id")) %>%
-  inner_join(., tbl(KELuser, "spatial_hierarchy"), by = "plotid") %>%
-  select(stand, subplot, plotid, sp_type, status, growth, dbh_mm) %>%
-  collect() %>%
-  mutate(ca_m2 = case_when(
-          sp_type %in% "broadleaved" ~ predict(object = broad, newdata = ., allow.new.levels = T),
-          sp_type %in% "coniferous" ~  predict(object = conif, newdata = ., allow.new.levels = T)),
-         ca_m2 = ca_m2^2) %>%
-  group_by(plotid) %>%
-  summarise(ca_alive = sum(ca_m2[status %in% 1 & growth %in% 1]),
-            ca_dead = sum(ca_m2[status %in% c(2:4, 11:14, 16:23)])) %>%
-  mutate(dead_pct = (ca_dead / (ca_alive + ca_dead)) * 100) %>%
-  filter(dead_pct > 5) %>%
-  pull(plotid)
-
-# 3. 3. data --------------------------------------------------------------
-
-# 3. 3. 1. sampled trees --------------------------------------------------
+# 3. 2. 1. sampled trees --------------------------------------------------
 
 data.sampled <- tbl(KELuser, "dist_tree") %>%
   inner_join(., tbl(KELuser, "core") %>% select(core_id = id, tree_id), by = "tree_id") %>%
@@ -69,11 +51,9 @@ data.sampled <- tbl(KELuser, "dist_tree") %>%
   inner_join(., tbl(KELuser, "tree"), by = c("tree_id" = "id")) %>%
   distinct(., plot_id, tree_id, year_min, year_max) %>%
   group_by(plot_id) %>%
-  filter(n() >= 10) %>%
+  filter(n() >= 8) %>%
   ungroup() %>%
-  inner_join(., tbl(KELuser, "plot") %>% 
-               filter(!plotid %in% X) %>% select(-stand, -subplot), 
-             by = c("plot_id" = "id")) %>%
+  inner_join(., tbl(KELuser, "plot") %>% select(-stand, -subplot), by = c("plot_id" = "id")) %>%
   inner_join(., tbl(KELuser, "spatial_hierarchy"), by = "plotid") %>%
   inner_join(., tbl(KELuser, "tree"), by = c("tree_id" = "id", "plot_id")) %>%
   inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
@@ -81,19 +61,17 @@ data.sampled <- tbl(KELuser, "dist_tree") %>%
   select(stand, subplot, plotid, tree_id, sp_type, dbh_mm, year_min, year_max, event, year) %>%
   collect()
  
-# 3. 3. 2. unsampled trees ------------------------------------------------
+# 3. 2. 2. unsampled trees ------------------------------------------------
 
 data.unsampled <- tbl(KELuser, "core") %>%
   filter(coretype %in% 1) %>%
   right_join(., tbl(KELuser, "tree") %>% 
                filter(!id %in% local(data.sampled$tree_id),
-                      id %in% tree.id,
-                      status %in% 1,
-                      growth %in% 1),
+                      id %in% tree.id),
              by = c("tree_id" = "id")) %>%
   inner_join(., tbl(KELuser, "tree") %>% filter(id %in% local(data.sampled$tree_id)) %>% distinct(., plot_id), by = "plot_id") %>%
   inner_join(., tbl(KELuser, "plot"), by = c("plot_id" = "id")) %>%
-  filter((foresttype %in% "spruce" & !stand %in% "Polana" & !is.na(subcore)) | (foresttype %in% "beech" | stand %in% "Polana")) %>%
+  filter((foresttype %in% "spruce" & !stand %in% "Polana" & !is.na(subcore)) | ((foresttype %in% "beech" | stand %in% "Polana") & (status %in% c(1:4) | !is.na(subcore)))) %>%
   select(-stand, -subplot) %>%
   inner_join(., tbl(KELuser, "spatial_hierarchy"), by = "plotid") %>%
   inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
@@ -104,7 +82,7 @@ data.unsampled <- tbl(KELuser, "core") %>%
   select(stand, subplot, plotid, tree_id, sp_type, dbh_mm, year_min, year_max, event, year) %>%
   collect()
 
-# 3. 3. 3. sampled + unsampled trees --------------------------------------
+# 3. 2. 3. sampled + unsampled trees --------------------------------------
 
 data.all <- bind_rows(data.sampled, data.unsampled) %>%
   mutate(ca_m2 = case_when(
@@ -112,7 +90,7 @@ data.all <- bind_rows(data.sampled, data.unsampled) %>%
           sp_type %in% "coniferous" ~  predict(object = conif, newdata = ., allow.new.levels = T)),
          ca_m2 = ca_m2^2)
 
-# 3. 4. bootstrapping -----------------------------------------------------
+# 3. 3. bootstrapping -----------------------------------------------------
 
 data.boot <- data.all %>% 
   distinct(., plotid, tree_id) %>%
@@ -123,7 +101,7 @@ set.seed(1)
 
 data.dist.boot <- data.boot %>%
   group_by(plotid, rep) %>%
-  slice_sample(., n = 12, replace = TRUE) %>%
+  slice_sample(., n = 8, replace = TRUE) %>%
   ungroup() %>%
   left_join(., data.all %>% select(plotid, tree_id, year_min, year_max, event, year, ca_m2), by = c("plotid", "tree_id")) %>%
   do({
@@ -190,9 +168,9 @@ for (p in unique(data.dist.boot$plotid)) {
   remove(x, out)
 }
 
-# 3. 5. kernel density estimation & peak detection ------------------------
+# 3. 4. kernel density estimation & peak detection ------------------------
 
-# 3. 5. 1. full chronologies ----------------------------------------------
+# 3. 4. 1. full chronologies ----------------------------------------------
 
 data.kde.full <- data.dist %>%
   filter(year >= year_min, year <= year_max) %>%
@@ -209,7 +187,7 @@ data.peaks.full <- data.kde.full %>%
   ungroup() %>%
   mutate(type = "full")
 
-# 3. 5. 2. cut chronologies -----------------------------------------------
+# 3. 4. 2. cut chronologies -----------------------------------------------
 
 data.kde.cut <- tbl(KELuser, "tree") %>%
   inner_join(., tbl(KELuser, "species_fk"), by = c("species" = "id")) %>%
@@ -236,7 +214,7 @@ data.peaks.cut <- data.kde.cut %>%
   ungroup() %>%
   mutate(type = "cut")
 
-# 3. 5. 3. full + cut chronologies ----------------------------------------
+# 3. 4. 3. full + cut chronologies ----------------------------------------
 
 data.kde.all <- bind_rows(data.kde.full, data.kde.cut) %>% filter(!is.na(ncores))
 
