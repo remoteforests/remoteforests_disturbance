@@ -133,7 +133,7 @@ for (s in unique(polygons$stand)) {
     
     for (i in 1:length(x[[2]][[1]])) {
       
-      if(length(x[[2]][[1]][[i]]) == 2){
+      if(length(x[[2]][[1]][[i]]) > 1){
         
         print(paste(s,p,i, sep = "_"))
         
