@@ -48,7 +48,7 @@ data.sampled <- tbl(KELuser, "dist_tree") %>%
                group_by(core_id) %>% summarise(year_min = min(year), year_max = max(year) - 17),
              by = "core_id") %>%
   filter(!(year_min > year_max & year > year_max)) %>%
-  inner_join(., tbl(KELuser, "tree"), by = c("tree_id" = "id")) %>%
+  inner_join(., tbl(KELuser, "tree") %>% filter(plot_id %in% plot.id), by = c("tree_id" = "id")) %>%
   distinct(., plot_id, tree_id, year_min, year_max) %>%
   group_by(plot_id) %>%
   filter(n() >= 8) %>%
