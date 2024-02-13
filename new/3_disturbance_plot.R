@@ -69,6 +69,8 @@ data.unsampled <- tbl(KELuser, "core") %>%
                filter(!id %in% local(data.sampled$tree_id),
                       id %in% tree.id),
              by = c("tree_id" = "id")) %>%
+  # beech methodology - remove trees replaced by another sampled tree outside the plot
+  filter(!treeid %in% c("SLO_KUN_003_016", "SLO_KUN_003_056", "SLO_SKA_008_003")) %>%
   inner_join(., tbl(KELuser, "tree") %>% filter(id %in% local(data.sampled$tree_id)) %>% distinct(., plot_id), by = "plot_id") %>%
   inner_join(., tbl(KELuser, "plot"), by = c("plot_id" = "id")) %>%
   filter((foresttype %in% "spruce" & !stand %in% "Polana" & !is.na(subcore)) | ((foresttype %in% "beech" | stand %in% "Polana") & (status %in% c(1:4) | !is.na(subcore)))) %>%
