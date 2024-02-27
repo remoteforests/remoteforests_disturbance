@@ -1,6 +1,12 @@
 # 0. setup ----------------------------------------------------------------
 
-library(tidyverse);library(pool);library(zoo);library(pracma)
+# R 3.6.3 (2020-02-29)
+
+library(pool) # 0.1.4.3
+library(tidyverse) # 1.3.0 (dplyr 1.0.7, forcats 0.5.0, ggplot2 3.3.5, purr 0.3.4, readr 1.3.1, stringr 1.4.0, tibble 3.0.0, tidyr 1.0.2)
+library(pracma) # 2.2.9
+library(RPostgreSQL) # 0.6-2 (DBI 1.1.0)
+library(zoo) # 1.8-7
 
 source("new/pw.R")
 

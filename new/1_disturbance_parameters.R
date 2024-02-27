@@ -1,6 +1,18 @@
 # 0. setup ----------------------------------------------------------------
 
-library(tidyverse);library(pool);library(zoo);library(pracma);library(lme4);library(cutpointr)
+# R 3.6.3 (2020-02-29)
+
+library(DHARMa) # 0.4.4
+library(effects) # 4.2.-0 (carData 3.0-4)
+# ncf 1.2-9
+library(performance) # 0.8.0
+library(pool) # 0.1.4.3
+library(tidyverse) # 1.3.0 (dplyr 1.0.7, forcats 0.5.0, ggplot2 3.3.5, purr 0.3.4, readr 1.3.1, stringr 1.4.0, tibble 3.0.0, tidyr 1.0.2)
+library(pracma) # 2.2.9
+library(cutpointr) # 1.1.2
+library(lme4) # 1.1-27.1 (Matrix 1.2-18)
+library(RPostgreSQL) # 0.6-2 (DBI 1.1.0)
+library(zoo) # 1.8-7
 
 source("new/pw.R")
 
@@ -60,12 +72,12 @@ summary(conif)
 
 plot(conif)
 
-plot(DHARMa::simulateResiduals(conif))
+plot(simulateResiduals(conif))
 
-plot(effects::allEffects(conif, partial.residuals = TRUE))
+plot(allEffects(conif, partial.residuals = TRUE))
 
-performance::model_performance(conif) # R2 (cond.) = 0.718, R2 (marg.) = 0.516, RMSE = 0.888
-performance::icc(conif, by_group = TRUE) # plotid = 0.153, subplot = 0.010, stand = 0.254
+model_performance(conif) # R2 (cond.) = 0.718, R2 (marg.) = 0.516, RMSE = 0.888
+icc(conif, by_group = TRUE) # plotid = 0.153, subplot = 0.010, stand = 0.254
 
 plot(ncf::spline.correlog(x = data.conif$lng, y = data.conif$lat, z = residuals(conif), resamp = 10, latlon = T))
 
@@ -79,12 +91,12 @@ summary(broad)
 
 plot(broad)
 
-plot(DHARMa::simulateResiduals(broad))
+plot(simulateResiduals(broad))
 
-plot(effects::allEffects(broad, partial.residuals = TRUE))
+plot(allEffects(broad, partial.residuals = TRUE))
 
-performance::model_performance(broad) # R2 (cond.) = 0.692, R2 (marg.) = 0.544, RMSE = 1.642
-performance::icc(broad, by_group = TRUE) # plotid = 0.133, subplot = 0.074, stand = 0.119 
+model_performance(broad) # R2 (cond.) = 0.692, R2 (marg.) = 0.544, RMSE = 1.642
+icc(broad, by_group = TRUE) # plotid = 0.133, subplot = 0.074, stand = 0.119 
 
 plot(ncf::spline.correlog(x = data.broad$lng, y = data.broad$lat, z = residuals(broad), resamp = 10, latlon = T))
 
