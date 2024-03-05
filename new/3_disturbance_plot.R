@@ -58,6 +58,7 @@ data.sampled <- tbl(KELuser, "dist_tree") %>%
   inner_join(., tbl(KELuser, "tree") %>% filter(plot_id %in% plot.id), by = c("tree_id" = "id")) %>%
   distinct(., plot_id, tree_id, year_min, year_max) %>%
   group_by(plot_id) %>%
+  # filter plots by the minimum number of usable cores
   filter(n() >= 8) %>%
   ungroup() %>%
   inner_join(., tbl(KELuser, "plot") %>% select(-stand, -subplot), by = c("plot_id" = "id")) %>%
@@ -99,6 +100,13 @@ data.all <- bind_rows(data.sampled, data.unsampled) %>%
           sp_type %in% "coniferous" ~  predict(object = conif, newdata = ., allow.new.levels = T)),
          ca_m2 = ca_m2^2)
 
+# # maximum common number of tree records per plot (sampled + unsampled)
+# data.all %>% 
+#   distinct(., plotid, tree_id) %>%
+#   group_by(plotid) %>%
+#   summarise(n = n()) %>%
+#   summarise(n = min(n))
+
 # 3. 3. bootstrapping -----------------------------------------------------
 
 data.boot <- data.all %>% 
@@ -110,6 +118,7 @@ set.seed(1)
 
 data.dist.boot <- data.boot %>%
   group_by(plotid, rep) %>%
+  # size of bootstrapping subsamples = maximum common number of tree records per plot (sampled + unsampled)
   slice_sample(., n = 8, replace = TRUE) %>%
   ungroup() %>%
   left_join(., data.all %>% select(plotid, tree_id, year_min, year_max, event, year, ca_m2), by = c("plotid", "tree_id")) %>%
